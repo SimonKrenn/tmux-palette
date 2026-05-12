@@ -1,0 +1,21 @@
+{
+  "name": "tmux-palette",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Raycast-style command palette for tmux, built with opentui",
+  "bin": {
+    "tmux-palette": "./bin/tmux-palette.sh"
+  },
+  "scripts": {
+    "start": "bun src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.2.6"
+  }
+}
