@@ -1,4 +1,4 @@
-import type { Theme } from "./types"
+import type { Colors, Theme } from "./types"
 
 export const midnightPurple: Theme = {
   bg: "#1e1d40",
@@ -51,4 +51,33 @@ export function resolveTheme(theme: Theme | string | undefined): Theme {
     return found
   }
   return theme
+}
+
+function rgb(hex: string): [number, number, number] {
+  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+  if (!m) throw new Error(`Invalid hex color: ${hex}`)
+  return [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16)]
+}
+
+export function fg(hex: string): string {
+  const [r, g, b] = rgb(hex)
+  return `\x1b[38;2;${r};${g};${b}m`
+}
+
+export function bg(hex: string): string {
+  const [r, g, b] = rgb(hex)
+  return `\x1b[48;2;${r};${g};${b}m`
+}
+
+export function makeColors(theme: Theme): Colors {
+  return {
+    bg: bg(theme.bg),
+    panel: bg(theme.panel),
+    selected: bg(theme.selected) + fg(theme.fg),
+    fg: fg(theme.fg),
+    muted: fg(theme.muted),
+    accent: fg(theme.accent),
+    reset: "\x1b[0m",
+    bold: "\x1b[1m",
+  }
 }

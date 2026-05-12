@@ -2,7 +2,7 @@
   "name": "tmux-palette",
   "version": "0.1.0",
   "type": "module",
-  "description": "Raycast-style command palette for tmux, built with opentui",
+  "description": "Raycast-style command palette for tmux — fast, scriptable, easy to extend",
   "bin": {
     "tmux-palette": "./bin/tmux-palette.sh"
   },
@@ -15,7 +15,5 @@
   "peerDependencies": {
     "typescript": "^5"
   },
-  "dependencies": {
-    "@opentui/core": "^0.2.6"
-  }
+  "dependencies": {}
 }

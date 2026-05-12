@@ -1,258 +1,88 @@
-import { createCliRenderer, BoxRenderable, TextRenderable, TextAttributes, ScrollBoxRenderable } from "@opentui/core"
-import type { Item, PaletteDef } from "./types"
-import { resolveTheme } from "./theme"
 import { dispatchToFile } from "./dispatch"
+import { makeColors, resolveTheme } from "./theme"
+import type { Colors, Item, PaletteDef } from "./types"
 
 export function definePalette(def: PaletteDef): PaletteDef {
   return def
 }
 
+function strip(s: string): string {
+  return s.replace(/\x1b\[[0-9;]*m/g, "")
+}
+
+function charWidth(c: string): number {
+  const code = c.codePointAt(0) ?? 0
+  if (code === 0) return 0
+  if (code < 32 || (code >= 0x7f && code < 0xa0)) return 0
+  if (
+    code >= 0x1100 &&
+    (code <= 0x115f ||
+      code === 0x2329 ||
+      code === 0x232a ||
+      (code >= 0x2e80 && code <= 0xa4cf) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf000 && code <= 0xf8ff) ||
+      (code >= 0xfe10 && code <= 0xfe19) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6) ||
+      (code >= 0x1f300 && code <= 0x1faff))
+  ) return 2
+  return 1
+}
+
+function displayWidth(s: string): number {
+  return Array.from(strip(s)).reduce((w, c) => w + charWidth(c), 0)
+}
+
+function truncate(s: string, width: number): string {
+  const current = displayWidth(s)
+  if (current <= width) return s + " ".repeat(width - current)
+  const plain = strip(s)
+  let result = ""
+  let used = 0
+  for (const c of Array.from(plain)) {
+    const next = used + charWidth(c)
+    if (next >= width) break
+    result += c
+    used = next
+  }
+  return result + "…" + " ".repeat(Math.max(0, width - used - 1))
+}
+
+function autoAlias(title: string): string | null {
+  const words = title.split(/\s+/).filter((w) => /^[a-z]/i.test(w))
+  if (words.length < 2) return null
+  return words.map((w) => w[0]!).join("").toLowerCase()
+}
+
 export async function runPalette(def: PaletteDef): Promise<void> {
   const theme = resolveTheme(def.theme)
+  const colors = makeColors(theme)
+  const items: Item[] = typeof def.items === "function" ? await def.items() : def.items
+
+  const cmdFile = process.env.TMUX_PALETTE_CMD
   const title = def.title ?? "Commands"
   const grouped = def.grouped !== false
   const emptyText = def.emptyText ?? "No results"
-  const cmdFile = process.env.TMUX_PALETTE_CMD
-
-  const items: Item[] = typeof def.items === "function" ? await def.items() : def.items
-
-  const renderer = await createCliRenderer({ exitOnCtrlC: true })
 
   let filter = ""
   let selected = 0
-  let rowIdCounter = 0
-  let selectedRowId: string | null = null
-  const listChildren: string[] = []
+  let scroll = 0
+  type RowAction = { y: number; itemIndex: number }
+  let rowActions: RowAction[] = []
+  let escAction: { y: number; xStart: number; xEnd: number } | undefined
 
-  const root = new BoxRenderable(renderer, {
-    id: "root",
-    width: "100%",
-    height: "100%",
-    backgroundColor: theme.panel,
-    flexDirection: "column",
-    paddingX: 3,
-    paddingY: 1,
-  })
+  const stdin = process.stdin
+  const stdout = process.stdout
 
-  const header = new BoxRenderable(renderer, {
-    id: "header",
-    width: "100%",
-    height: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  })
-  header.add(new TextRenderable(renderer, {
-    id: "h-title",
-    content: title,
-    fg: theme.fg,
-    attributes: TextAttributes.BOLD,
-  }))
-  header.add(new TextRenderable(renderer, {
-    id: "h-esc",
-    content: "esc",
-    fg: theme.muted,
-    onMouseDown: () => exit(),
-  }))
-
-  const search = new BoxRenderable(renderer, {
-    id: "search",
-    width: "100%",
-    height: 1,
-    flexDirection: "row",
-  })
-  const searchCursor = new TextRenderable(renderer, {
-    id: "search-cursor",
-    content: "▌",
-    fg: theme.accent,
-  })
-  const searchText = new TextRenderable(renderer, {
-    id: "search-text",
-    content: " Search",
-    fg: theme.muted,
-  })
-  search.add(searchCursor)
-  search.add(searchText)
-
-  const spacer = new TextRenderable(renderer, { id: "spacer", content: "" })
-
-  const list = new ScrollBoxRenderable(renderer, {
-    id: "list",
-    width: "100%",
-    flexGrow: 1,
-    scrollY: true,
-    scrollX: false,
-    viewportCulling: false,
-    contentOptions: { flexDirection: "column" },
-    onMouseScroll: (event: any) => {
-      const vis = visible()
-      if (!vis.length) return
-      const dir = event.scroll?.direction
-      if (dir === "up") {
-        selected = (selected - 1 + vis.length) % vis.length
-        render()
-      } else if (dir === "down") {
-        selected = (selected + 1) % vis.length
-        render()
-      }
-    },
-  })
-
-  const footerSpacer = new TextRenderable(renderer, { id: "footerSpacer", content: "" })
-  const footer = new TextRenderable(renderer, { id: "footer", content: "", fg: theme.muted })
-
-  list.verticalScrollBar.visible = false
-  list.horizontalScrollBar.visible = false
-
-  root.add(header)
-  root.add(search)
-  root.add(spacer)
-  root.add(list)
-  root.add(footerSpacer)
-  root.add(footer)
-  renderer.root.add(root)
-
-  // Initials of multi-word titles. "New Window" -> "nw", "Move Pane to..." -> "mpt".
-  // Used as an invisible searchable alias; not rendered as a chip.
-  function autoAlias(title: string): string | null {
-    const words = title.split(/\s+/).filter((w) => /^[a-z]/i.test(w))
-    if (words.length < 2) return null
-    return words.map((w) => w[0]!).join("").toLowerCase()
-  }
-
-  function visible(): Item[] {
-    const needle = filter.trim()
-    if (!needle) return items
-    if (def.filter) return def.filter(items, needle)
-    const needleLower = needle.toLowerCase()
-    return items.filter((c) => {
-      const auto = autoAlias(c.title)
-      const haystack = [c.title, c.description, c.category, c.shortcut, ...(c.aliases ?? []), auto]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-      return needleLower.split(/\s+/).every((p) => haystack.includes(p))
-    })
-  }
-
-  function exit(): void {
-    renderer.destroy()
-    process.exit(0)
-  }
-
-  async function activate(item: Item): Promise<void> {
-    renderer.destroy()
-    const action = item.action
-    if ("run" in action) {
-      await action.run({ cmdFile })
-      process.exit(0)
-    }
-    dispatchToFile(action, cmdFile)
-    process.exit(0)
-  }
-
-  function buildRow(item: Item, active: boolean): BoxRenderable {
-    const id = `row-${rowIdCounter++}`
-    listChildren.push(id)
-    if (active) selectedRowId = id
-
-    if (def.renderItem) {
-      const custom = def.renderItem(item, { theme, active, id, renderer })
-      if (isSelectable(item)) {
-        ;(custom as any).onMouseDown = () => { void activate(item) }
-      }
-      return custom as BoxRenderable
-    }
-
-    const row = new BoxRenderable(renderer, {
-      id,
-      width: "100%",
-      height: 1,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      backgroundColor: active ? theme.selected : theme.panel,
-      onMouseDown: () => { void activate(item) },
-    })
-
-    const left = new BoxRenderable(renderer, {
-      id: `${id}-l`,
-      flexDirection: "row",
-      flexShrink: 1,
-      height: 1,
-    })
-    left.add(new TextRenderable(renderer, {
-      id: `${id}-marker`,
-      content: `${active ? "▌" : " "} `,
-      fg: theme.accent,
-    }))
-    left.add(new TextRenderable(renderer, {
-      id: `${id}-icon`,
-      content: `${item.icon ?? " "}  `,
-      fg: theme.accent,
-    }))
-    left.add(new TextRenderable(renderer, {
-      id: `${id}-t`,
-      content: item.title,
-      fg: active ? theme.fg : theme.muted,
-      attributes: active ? TextAttributes.BOLD : 0,
-    }))
-    if (item.aliases?.length) {
-      left.add(new TextRenderable(renderer, {
-        id: `${id}-a`,
-        content: `  ${item.aliases[0]} `,
-        fg: theme.muted,
-        bg: theme.bg,
-      }))
-    }
-    if (item.description) {
-      left.add(new TextRenderable(renderer, {
-        id: `${id}-d`,
-        content: ` - ${item.description}`,
-        fg: theme.muted,
-      }))
-    }
-    row.add(left)
-
-    if (item.shortcut) {
-      row.add(new TextRenderable(renderer, {
-        id: `${id}-s`,
-        content: `${item.shortcut} `,
-        fg: active ? theme.accent : theme.muted,
-      }))
-    }
-
-    return row
-  }
-
-  function buildCategoryHeader(category: string): BoxRenderable {
-    const id = `cat-${rowIdCounter++}`
-    listChildren.push(id)
-    const box = new BoxRenderable(renderer, {
-      id,
-      width: "100%",
-      height: 1,
-      flexDirection: "row",
-    })
-    box.add(new TextRenderable(renderer, {
-      id: `${id}-t`,
-      content: category,
-      fg: theme.accent,
-      attributes: TextAttributes.BOLD,
-    }))
-    return box
+  if (!stdin.isTTY || !stdout.isTTY || !stdin.setRawMode) {
+    console.error("palette requires an interactive terminal")
+    process.exit(1)
   }
 
   function isSelectable(item: Item | undefined): boolean {
     return !!item && item.selectable !== false
-  }
-
-  function firstSelectable(vis: Item[]): number {
-    for (let i = 0; i < vis.length; i++) if (isSelectable(vis[i])) return i
-    return -1
-  }
-
-  function lastSelectable(vis: Item[]): number {
-    for (let i = vis.length - 1; i >= 0; i--) if (isSelectable(vis[i])) return i
-    return -1
   }
 
   function step(vis: Item[], from: number, dir: 1 | -1): number {
@@ -265,71 +95,258 @@ export async function runPalette(def: PaletteDef): Promise<void> {
     return from
   }
 
-  function clampSelected(vis: Item[]): void {
-    if (selected < 0 || selected >= vis.length || !isSelectable(vis[selected])) {
-      const first = firstSelectable(vis)
-      selected = first >= 0 ? first : 0
+  function firstSelectable(vis: Item[]): number {
+    for (let i = 0; i < vis.length; i++) if (isSelectable(vis[i])) return i
+    return -1
+  }
+
+  function visible(): Item[] {
+    const needle = filter.trim()
+    if (!needle) return items
+    if (def.filter) return def.filter(items, needle)
+    const lower = needle.toLowerCase()
+    return items.filter((c) => {
+      const auto = autoAlias(c.title)
+      const haystack = [c.title, c.description, c.category, c.shortcut, ...(c.aliases ?? []), auto]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      return lower.split(/\s+/).every((p) => haystack.includes(p))
+    })
+  }
+
+  stdin.setRawMode(true)
+  stdin.resume()
+  stdin.setEncoding("utf8")
+  stdout.write("\x1b[?1000h\x1b[?1006h\x1b[?25l")
+
+  function defaultRenderItem(item: Item, active: boolean, bodyWidth: number): string {
+    const rowBg = active ? colors.selected : colors.panel
+    const marker = active ? `${colors.accent}▌${colors.reset}${rowBg}` : " "
+    const icon = item.icon ? `${colors.accent}${item.icon}${colors.reset}${rowBg}` : " "
+    const titleStyle = active ? colors.bold + colors.fg : colors.muted
+    const titleStyled = `${titleStyle}${item.title}${colors.reset}${rowBg}`
+
+    let leftStyled = `${marker} ${icon}  ${titleStyled}`
+    let leftPlainW = 1 + 1 + charWidth(item.icon ?? " ") + 2 + displayWidth(item.title)
+
+    if (item.aliases?.length) {
+      const chip = `  ${colors.bg} ${item.aliases[0]} ${colors.reset}${rowBg}`
+      leftStyled += chip
+      leftPlainW += 2 + 1 + item.aliases[0]!.length + 1
     }
+    if (item.description) {
+      leftStyled += `${colors.muted} - ${item.description}${colors.reset}${rowBg}`
+      leftPlainW += 3 + item.description.length
+    }
+
+    const scText = item.shortcut ?? ""
+    const scStyled = scText
+      ? `${active ? colors.accent : colors.muted}${scText}${colors.reset}${rowBg}`
+      : ""
+
+    const gap = Math.max(1, bodyWidth - leftPlainW - scText.length)
+    return leftStyled + " ".repeat(gap) + scStyled
+  }
+
+  function renderCategory(category: string, rowBg: string): string {
+    return `${colors.accent}${colors.bold}${category}${colors.reset}${rowBg}`
   }
 
   function render(): void {
+    const width = stdout.columns ?? 80
+    const height = stdout.rows ?? 24
     const vis = visible()
-    clampSelected(vis)
 
-    searchText.content = filter ? ` ${filter}` : " Search"
-    ;(searchText as any).fg = filter ? theme.fg : theme.muted
+    if (!isSelectable(vis[selected])) {
+      const f = firstSelectable(vis)
+      selected = f >= 0 ? f : 0
+    }
 
-    for (const id of listChildren) list.remove(id)
-    listChildren.length = 0
-    selectedRowId = null
-
+    type Row =
+      | { kind: "category"; category: string }
+      | { kind: "item"; item: Item; itemIndex: number }
+    const rows: Row[] = []
     let lastCat = ""
     vis.forEach((item, i) => {
       if (grouped && !filter && item.category && item.category !== lastCat) {
-        list.add(buildCategoryHeader(item.category))
+        rows.push({ kind: "category", category: item.category })
         lastCat = item.category
       }
-      list.add(buildRow(item, i === selected))
+      rows.push({ kind: "item", item, itemIndex: i })
     })
 
-    footer.content = vis.length
-      ? `enter select   up/down move   ${vis.length} ${vis.length === 1 ? "command" : "commands"}`
-      : emptyText
+    // Chrome rows: top pad + header + search + spacer + footer spacer + footer + bottom pad = 7
+    const listHeight = Math.max(1, height - 7)
 
-    if (selectedRowId) list.scrollChildIntoView(selectedRowId)
+    const selectedRowIdx = rows.findIndex((r) => r.kind === "item" && r.itemIndex === selected)
+    if (selectedRowIdx >= 0) {
+      if (selectedRowIdx < scroll) scroll = selectedRowIdx
+      if (selectedRowIdx >= scroll + listHeight) scroll = selectedRowIdx - listHeight + 1
+    }
+    scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.length - listHeight)))
+
+    const padX = 3
+    const innerWidth = width - padX * 2
+    const bodyWidth = innerWidth // content area inside left/right padding
+    const blank = " ".repeat(width)
+    const out: string[] = []
+
+    out.push(`${colors.panel}${blank}${colors.reset}`)
+
+    const headerR = "esc"
+    const titleW = displayWidth(title)
+    const headerRW = displayWidth(headerR)
+    const headerGap = Math.max(0, innerWidth - titleW - headerRW)
+    out.push(
+      `${colors.panel}${" ".repeat(padX)}${colors.bold}${colors.fg}${title}${colors.reset}${colors.panel}${" ".repeat(headerGap)}${colors.muted}${headerR}${colors.panel}${" ".repeat(padX)}${colors.reset}`,
+    )
+    escAction = { y: 2, xStart: Math.max(1, width - padX - headerRW), xEnd: width - padX + 1 }
+
+    const searchValue = filter || "Search"
+    const searchColor = filter ? colors.fg : colors.muted
+    out.push(
+      `${colors.panel}${" ".repeat(padX)}${colors.accent}▌${searchColor} ${truncate(searchValue, bodyWidth - 2)}${colors.panel}${" ".repeat(padX)}${colors.reset}`,
+    )
+
+    out.push(`${colors.panel}${blank}${colors.reset}`)
+
+    rowActions = []
+    let drawn = 0
+    for (let i = scroll; i < rows.length && drawn < listHeight; i++) {
+      const row = rows[i]!
+      const isSelected = row.kind === "item" && row.itemIndex === selected
+      const rowBg = isSelected ? colors.selected : colors.panel
+
+      let content: string
+      if (row.kind === "category") {
+        content = renderCategory(row.category, rowBg)
+      } else if (def.renderItem) {
+        content = def.renderItem(row.item, { colors, active: isSelected, width: bodyWidth })
+      } else {
+        content = defaultRenderItem(row.item, isSelected, bodyWidth)
+      }
+
+      if (row.kind === "item") {
+        rowActions.push({ y: 5 + drawn, itemIndex: row.itemIndex })
+      }
+
+      out.push(`${rowBg}${" ".repeat(padX)}${truncate(content, bodyWidth)}${" ".repeat(padX)}${colors.reset}`)
+      drawn++
+    }
+    while (drawn++ < listHeight) {
+      out.push(`${colors.panel}${blank}${colors.reset}`)
+    }
+
+    out.push(`${colors.panel}${blank}${colors.reset}`)
+
+    const selectableCount = vis.filter(isSelectable).length
+    const footerText = selectableCount
+      ? `enter select   up/down move   ${selectableCount} ${selectableCount === 1 ? "command" : "commands"}`
+      : emptyText
+    out.push(
+      `${colors.panel}${" ".repeat(padX)}${colors.muted}${truncate(footerText, bodyWidth)}${colors.panel}${" ".repeat(padX)}${colors.reset}`,
+    )
+
+    out.push(`${colors.panel}${blank}${colors.reset}`)
+
+    // Single write minimises flicker.
+    stdout.write("\x1b[?25l\x1b[2J\x1b[H" + out.join("\n"))
   }
 
-  render()
+  function cleanup(): void {
+    stdout.write(`${colors.reset}\x1b[?1000l\x1b[?1006l\x1b[?25h\x1b[2J\x1b[H`)
+    stdin.setRawMode(false)
+    stdin.pause()
+  }
 
-  renderer.keyInput.on("keypress", (key) => {
+  function exitNow(): never {
+    cleanup()
+    process.exit(0)
+  }
+
+  async function activate(item: Item): Promise<void> {
+    cleanup()
+    if ("run" in item.action) {
+      await item.action.run({ cmdFile })
+      process.exit(0)
+    }
+    dispatchToFile(item.action, cmdFile)
+    process.exit(0)
+  }
+
+  stdin.on("data", (key: string) => {
     const vis = visible()
-    if (key.name === "escape") return exit()
-    if (key.name === "return") {
+
+    // SGR mouse: press+release sometimes arrive in one chunk on some terminals,
+    // so don't anchor to end-of-string.
+    const mouse = /^\x1b\[<(?<button>\d+);(?<x>\d+);(?<y>\d+)(?<kind>[mM])/.exec(key)
+    if (mouse?.groups) {
+      const button = Number(mouse.groups.button)
+      const x = Number(mouse.groups.x)
+      const y = Number(mouse.groups.y)
+      if (button === 64) {
+        selected = step(vis, selected, -1)
+      } else if (button === 65) {
+        selected = step(vis, selected, 1)
+      } else if (button === 0 && mouse.groups.kind === "M") {
+        if (escAction && y === escAction.y && x >= escAction.xStart && x <= escAction.xEnd) {
+          exitNow()
+        }
+        const hit = rowActions.find((r) => r.y === y)
+        if (hit) {
+          const item = vis[hit.itemIndex]
+          if (item && isSelectable(item)) {
+            selected = hit.itemIndex
+            void activate(item)
+            return
+          }
+        }
+      }
+      render()
+      return
+    }
+
+    if (key === "" || key === "") exitNow()
+    if (key === "\r") {
       const item = vis[selected]
       if (item && isSelectable(item)) void activate(item)
       return
     }
-    if (key.name === "up" || (key.ctrl && key.name === "p")) {
-      selected = step(vis, selected, -1)
-    } else if (key.name === "down" || (key.ctrl && key.name === "n")) {
-      selected = step(vis, selected, 1)
-    } else if (key.name === "pageup") {
-      let s = selected
-      for (let n = 0; n < 10; n++) s = step(vis, s, -1)
-      selected = s
-    } else if (key.name === "pagedown") {
-      let s = selected
-      for (let n = 0; n < 10; n++) s = step(vis, s, 1)
-      selected = s
-    } else if (key.name === "backspace") {
+    if (key === "") {
       filter = filter.slice(0, -1)
       selected = 0
-    } else if (!key.ctrl && !key.meta && key.sequence && key.sequence.length === 1 && key.sequence >= " " && key.sequence !== "\x7f") {
-      filter += key.sequence
+      scroll = 0
+      render()
+      return
+    }
+    if (key === "[A" || key === "") {
+      selected = step(vis, selected, -1)
+    } else if (key === "[B" || key === "") {
+      selected = step(vis, selected, 1)
+    } else if (key === "[5~") {
+      for (let i = 0; i < 10; i++) selected = step(vis, selected, -1)
+    } else if (key === "[6~") {
+      for (let i = 0; i < 10; i++) selected = step(vis, selected, 1)
+    } else if (key.length === 1 && key >= " " && key !== "") {
+      filter += key
       selected = 0
+      scroll = 0
     } else {
       return
     }
     render()
   })
+
+  process.on("exit", () => {
+    try {
+      stdout.write("\x1b[?1000l\x1b[?1006l\x1b[?25h")
+      stdin.setRawMode(false)
+    } catch {}
+  })
+  process.on("SIGTERM", () => exitNow())
+  process.on("SIGHUP", () => exitNow())
+  process.on("SIGWINCH", () => render())
+
+  render()
 }

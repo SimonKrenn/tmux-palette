@@ -1,6 +1,8 @@
 # tmux-palette
 
-A Raycast-style command palette for tmux, built with [opentui](https://github.com/anomalyco/opentui).
+A Raycast-style command palette for tmux. Runs on [Bun](https://bun.sh),
+zero runtime dependencies, snappy enough to feel like a native widget
+(~30ms cold start).
 
 Type a few letters, pick a command, hit enter — split a pane, jump to a window,
 detach a session, whatever. Designed to be easy to extend with your own

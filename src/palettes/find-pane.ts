@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process"
-import { BoxRenderable, TextRenderable, TextAttributes } from "@opentui/core"
 import { definePalette } from "../palette"
 import type { Item, RenderItemCtx } from "../types"
 
@@ -79,12 +78,9 @@ function fetchPanes(): { panes: Pane[]; currentPane: string; currentSession: str
   return { panes, currentPane, currentSession }
 }
 
-// Build the flat ordered list of items (sessions → windows → panes) with
-// tree-drawing prefixes pre-computed for each row.
 function buildItems(): Item[] {
   const { panes, currentSession } = fetchPanes()
 
-  // Group panes by session → window
   const sessionOrder: string[] = []
   const bySession = new Map<string, Map<string, { windowName: string; panes: Pane[] }>>()
   for (const p of panes) {
@@ -122,7 +118,6 @@ function buildItems(): Item[] {
       const winPrefix = `  ${isLastWin ? "└─" : "├─"} `
 
       if (w.panes.length === 1) {
-        // Condensed: single-pane window collapses into its pane row.
         const p = w.panes[0]!
         items.push({
           title: p.paneTitle,
@@ -134,7 +129,6 @@ function buildItems(): Item[] {
         continue
       }
 
-      // Multi-pane window: emit window header + each pane
       items.push({
         title: w.windowName,
         action: { tmux: `select-window -t '${session}:${windowIndex}' \\; switch-client -t '${session}'` },
@@ -175,94 +169,46 @@ function shortenPath(path: string): string {
   return home && path.startsWith(home) ? `~${path.slice(home.length)}` : path
 }
 
-function renderItem(item: Item, ctx: RenderItemCtx) {
-  const { theme, active, id, renderer } = ctx
+function renderItem(item: Item, ctx: RenderItemCtx): string {
+  const { colors, active, width } = ctx
   const data = item.data as ItemData
-  const bg = active ? theme.selected : theme.panel
-
-  const row = new BoxRenderable(renderer, {
-    id,
-    width: "100%",
-    height: 1,
-    flexDirection: "row",
-    backgroundColor: bg,
-  })
+  const rowBg = active ? colors.selected : colors.panel
 
   if (data.kind === "session") {
-    const marker = data.isCurrent ? "▶ " : "  "
-    row.add(new TextRenderable(renderer, {
-      id: `${id}-m`, content: marker, fg: theme.accent,
-    }))
-    row.add(new TextRenderable(renderer, {
-      id: `${id}-n`,
-      content: data.session,
-      fg: theme.accent,
-      attributes: TextAttributes.BOLD,
-    }))
-    row.add(new TextRenderable(renderer, {
-      id: `${id}-c`,
-      content: ` (${data.count})`,
-      fg: theme.muted,
-    }))
-    if (data.path) {
-      row.add(new TextRenderable(renderer, {
-        id: `${id}-p`,
-        content: `  ${shortenPath(data.path)}`,
-        fg: theme.muted,
-      }))
-    }
-    return row
+    const marker = data.isCurrent ? `${colors.accent}▶ ${colors.reset}${rowBg}` : "  "
+    const name = `${colors.accent}${colors.bold}${data.session}${colors.reset}${rowBg}`
+    const count = `${colors.muted} (${data.count})${colors.reset}${rowBg}`
+    const path = data.path ? `  ${colors.muted}${shortenPath(data.path)}${colors.reset}${rowBg}` : ""
+    return `${marker}${name}${count}${path}`
   }
 
   if (data.kind === "window") {
-    row.add(new TextRenderable(renderer, {
-      id: `${id}-t`, content: data.treePrefix, fg: theme.muted,
-    }))
-    row.add(new TextRenderable(renderer, {
-      id: `${id}-n`,
-      content: data.windowName,
-      fg: theme.fg,
-      attributes: active ? TextAttributes.BOLD : 0,
-    }))
-    return row
+    const titleStyle = active ? colors.bold + colors.fg : colors.fg
+    return `${colors.muted}${data.treePrefix}${colors.reset}${rowBg}${titleStyle}${data.windowName}${colors.reset}${rowBg}`
   }
 
-  // pane
   const p = data.pane
+  let markerColor: string
+  if (p.isCurrent) markerColor = colors.accent
+  else if (p.paneActive) markerColor = "\x1b[38;2;166;227;161m"
+  else markerColor = colors.muted
   const markerChar = p.isCurrent ? "▶" : p.paneActive ? "●" : "○"
-  const markerColor = p.isCurrent ? theme.accent : p.paneActive ? "#a6e3a1" : theme.muted
+  const titleStyle = p.isCurrent ? colors.muted : active ? colors.bold + colors.fg : colors.fg
 
-  row.add(new TextRenderable(renderer, {
-    id: `${id}-t`, content: data.treePrefix, fg: theme.muted,
-  }))
-  row.add(new TextRenderable(renderer, {
-    id: `${id}-m`, content: markerChar, fg: markerColor,
-  }))
-  row.add(new TextRenderable(renderer, {
-    id: `${id}-n`,
-    content: ` ${p.paneTitle}`,
-    fg: p.isCurrent ? theme.muted : theme.fg,
-    attributes: active ? TextAttributes.BOLD : 0,
-  }))
+  let left = `${colors.muted}${data.treePrefix}${colors.reset}${rowBg}${markerColor}${markerChar}${colors.reset}${rowBg} ${titleStyle}${p.paneTitle}${colors.reset}${rowBg}`
+  let leftPlainW = data.treePrefix.length + 1 + 1 + p.paneTitle.length
+
   if (p.agent) {
-    row.add(new TextRenderable(renderer, {
-      id: `${id}-a`, content: `  ${p.agent}`, fg: theme.muted,
-    }))
+    left += `  ${colors.muted}${p.agent}${colors.reset}${rowBg}`
+    leftPlainW += 2 + p.agent.length
   }
-  // Spacer + right-aligned window.pane index
-  row.add(new BoxRenderable(renderer, {
-    id: `${id}-sp`, flexGrow: 1, height: 1,
-  }))
-  row.add(new TextRenderable(renderer, {
-    id: `${id}-i`,
-    content: `${p.windowIndex}.${p.paneIndex} `,
-    fg: theme.muted,
-  }))
-  return row
+
+  const rightText = `${p.windowIndex}.${p.paneIndex}`
+  const right = `${colors.muted}${rightText}${colors.reset}${rowBg}`
+  const gap = Math.max(1, width - leftPlainW - rightText.length)
+  return `${left}${" ".repeat(gap)}${right}`
 }
 
-// Filter that preserves parent context: when a pane matches, keep its
-// session and window header rows so the tree still makes sense.
 function filterTree(items: Item[], query: string): Item[] {
   const parts = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!parts.length) return items
@@ -301,4 +247,3 @@ export const findPane = definePalette({
   renderItem,
   filter: filterTree,
 })
-
