@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 
 <br/>
 
-Paste the prompt below into [Claude Code](https://claude.com/claude-code), Cursor, Aider, or any AI coding agent. It will install the repo, set up your tmux binding, and (optionally) match the palette colors to your terminal theme.
+Paste the prompt below into [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex), [opencode](https://opencode.ai), Cursor, or any AI coding agent. It will install the repo, set up your tmux binding, and (optionally) match the palette colors to your terminal theme.
 
 ````
 You are helping a user install tmux-palette — a Raycast-style command palette for tmux. Repo: https://github.com/eduwass/tmux-palette
