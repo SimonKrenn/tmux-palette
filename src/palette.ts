@@ -56,6 +56,45 @@ function autoAlias(title: string): string | null {
   return words.map((w) => w[0]!).join("").toLowerCase()
 }
 
+const BOUNDARY = /[\s\-_·./:]/
+export function fuzzyScore(haystack: string, needle: string): number {
+  if (!needle) return 1
+  const hs = haystack.toLowerCase()
+  const nd = needle.toLowerCase()
+
+  const idx = hs.indexOf(nd)
+  if (idx !== -1) {
+    const atBoundary = idx === 0 || BOUNDARY.test(hs[idx - 1] ?? "")
+    return 10000 + (atBoundary ? 5000 : 0) - idx
+  }
+
+  let score = 0
+  let h = 0
+  let prev = -2
+  for (let n = 0; n < nd.length; n++) {
+    const target = nd[n]
+    while (h < hs.length && hs[h] !== target) h++
+    if (h >= hs.length) return 0
+    const atBoundary = h === 0 || BOUNDARY.test(hs[h - 1] ?? "")
+    if (atBoundary) score += 50
+    else if (h === prev + 1) score += 20
+    else score += 5
+    prev = h
+    h++
+  }
+  return Math.max(1, score)
+}
+
+export function multiFuzzyScore(haystack: string, parts: string[]): number {
+  let total = 0
+  for (const p of parts) {
+    const s = fuzzyScore(haystack, p)
+    if (s === 0) return 0
+    total += s
+  }
+  return total
+}
+
 export async function runPalette(def: PaletteDef): Promise<void> {
   const theme = resolveTheme(def.theme)
   const colors = makeColors(theme)
@@ -104,15 +143,18 @@ export async function runPalette(def: PaletteDef): Promise<void> {
     const needle = filter.trim()
     if (!needle) return items
     if (def.filter) return def.filter(items, needle)
-    const lower = needle.toLowerCase()
-    return items.filter((c) => {
-      const auto = autoAlias(c.title)
-      const haystack = [c.title, c.description, c.category, c.shortcut, ...(c.aliases ?? []), auto]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-      return lower.split(/\s+/).every((p) => haystack.includes(p))
-    })
+    const parts = needle.split(/\s+/).filter(Boolean)
+    return items
+      .map((c) => {
+        const auto = autoAlias(c.title)
+        const haystack = [c.title, c.description, c.category, c.shortcut, ...(c.aliases ?? []), auto]
+          .filter(Boolean)
+          .join(" ")
+        return { item: c, score: multiFuzzyScore(haystack, parts) }
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.item)
   }
 
   stdin.setRawMode(true)
@@ -250,8 +292,9 @@ export async function runPalette(def: PaletteDef): Promise<void> {
 
     out.push(`${colors.panel}${blank}${colors.reset}`)
 
-    // Single write minimises flicker.
-    stdout.write("\x1b[?25l\x1b[2J\x1b[H" + out.join("\n"))
+    // Synchronized output + cursor-home (no clear) so the frame swaps
+    // atomically without a blank flash, even when arrow keys repeat fast.
+    stdout.write("\x1b[?2026h\x1b[?25l\x1b[H" + out.join("\n") + "\x1b[?2026l")
   }
 
   function cleanup(): void {

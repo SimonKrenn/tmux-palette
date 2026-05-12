@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process"
-import { definePalette } from "../palette"
+import { definePalette, multiFuzzyScore } from "../palette"
 import type { Item, RenderItemCtx } from "../types"
 
 function tmux(args: string[]): string {
@@ -223,8 +223,8 @@ function filterTree(items: Item[], query: string): Item[] {
     const p = data.pane
     const haystack = [
       p.session, p.windowName, p.paneTitle, p.command, p.path, p.target, p.agent,
-    ].filter(Boolean).join(" ").toLowerCase()
-    if (parts.every((part) => haystack.includes(part))) {
+    ].filter(Boolean).join(" ")
+    if (multiFuzzyScore(haystack, parts) > 0) {
       okPanes.add(p.target)
       okSessions.add(p.session)
       okWindows.add(`${p.session}:${p.windowIndex}`)
