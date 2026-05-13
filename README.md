@@ -18,7 +18,7 @@ https://github.com/user-attachments/assets/5edce838-9199-4123-8262-352bc47e989c
 ## Highlights
 
 - **Fast startup** — designed for frequent use from a tmux key binding
-- **Custom palettes** — define your own with [a single JSON file](#custom-palettes-configtmux-palettepalettesnamejson), bind to any key
+- **Custom palettes** — define your own with [a single JSON file](#custom-palettes), bind to any key
 - **Hide built-ins** — declutter the default palette via [`hidden.json`](#hiddenjson--hide-built-in-items)
 - **Mobile-aware** — [auto-fullscreens](#sizingjson--popup-dimensions-and-borders) on narrow terminals (Moshi / Blink on iOS)
 - **Curated themes** — 12 built-in themes including Shades of Purple, Dracula, Tokyo Night, Catppuccin, Gruvbox, Nord, and Solarized. [Pick one with live preview](#themes), or [drop your own](#custom-themes)
@@ -41,86 +41,6 @@ See [`examples/`](examples) for drop-in palettes you can copy into
 `~/.config/tmux-palette/palettes/`.
 
 ## Install
-
-<details>
-<summary><b>Hand off to an AI agent</b> (auto-detects your terminal theme)</summary>
-
-<br/>
-
-Paste the prompt below into [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex), [opencode](https://opencode.ai), Cursor, or any AI coding agent. It will install the repo, set up your tmux binding, and (optionally) match the palette colors to your terminal theme.
-
-````
-You are helping a user install tmux-palette, a command palette for tmux. Repo: https://github.com/eduwass/tmux-palette
-
-Follow steps in order. Confirm with the user before any change that modifies their files.
-
-1. Prerequisites
-- Run `bun --version`. If Bun is missing, point them to https://bun.sh/docs/installation and stop — do not auto-install.
-- Run `tmux -V`. If lower than 3.4, warn that `display-popup -E` may not work, then proceed.
-
-2. Clone and install
-- Default path: `~/Sites/tmux-palette`. Ask the user if they want a different location.
-- If the path already exists and contains the repo, run `git -C <path> pull` and skip cloning.
-- Otherwise: `git clone https://github.com/eduwass/tmux-palette <path> && cd <path> && bun install`.
-
-3. Bind it to a tmux key (required — the palette doesn't open without one)
-- Default suggestion: `bind -n C-Space run-shell "<absolute-path>/bin/tmux-palette.sh"` (no-prefix, opens with Ctrl+Space — Raycast-feel). Ask the user if they want a different key.
-- Append the bind line to `~/.tmux.conf` (create it if missing).
-- Run `tmux source-file ~/.tmux.conf` to reload (or tell them to do it).
-
-4. Match the palette to their terminal theme (optional)
-Ask: "Want the palette colors to match your terminal's theme?"
-
-If yes, detect their terminal:
-- Check $TERM_PROGRAM and $TERM. Common values: ghostty, iTerm.app, vscode, WezTerm, Apple_Terminal.
-- Read the relevant config:
-  - Ghostty:    ~/.config/ghostty/config
-  - Alacritty:  ~/.config/alacritty/alacritty.toml (or .yml)
-  - Kitty:      ~/.config/kitty/kitty.conf  (follow `include` lines)
-  - WezTerm:    ~/.wezterm.lua or ~/.config/wezterm/wezterm.lua
-  - iTerm2 / others: ask the user for hex codes; their configs are hard to parse.
-- Extract: background → `bg`, foreground → `fg`, cursor color → `accent`, selection bg → `selected`. Derive `panel` (slightly lighter than bg) and `muted` (fg dimmed).
-- Write `~/.config/tmux-palette/theme.json` with `{ bg, panel, selected, fg, muted, accent }`. The palette reads this at runtime; do NOT edit source files.
-- Report the colors you picked.
-
-5. Test
-Tell the user to press their binding. Ask what they see.
-
-6. Offer follow-ups
-When it works, ask:
-- "Want to change the binding?" — revisit step 3.
-- "Want to add custom commands?" — write items to `~/.config/tmux-palette/commands.json` (array of Items). Action types: `{ "tmux": "..." }`, `{ "shell": "..." }`, `{ "popup": "..." }`, `{ "palette": "name" }`. Do NOT edit source files.
-- "Want custom shortcut labels?" — write `~/.config/tmux-palette/shortcuts.json` mapping item titles to label strings (useful when the user's binding is at the terminal layer and tmux can't see it).
-- "Want to explore the sub-palettes?" — they already have Find Pane and Move Pane to... in the default palette.
-
-Constraints
-- Prefer `~/.config/tmux-palette/*.json` over source edits. The user's config survives upstream pulls; source edits don't.
-- Do not push to git or modify files outside the user's home directory.
-- Do not auto-install Bun or any other system package.
-- If anything fails, stop and explain what went wrong.
-````
-
-</details>
-
-<details>
-<summary><b>Install via TPM</b> (Tmux Plugin Manager)</summary>
-
-<br/>
-
-Requires Bun: https://bun.sh
-
-Add to your `.tmux.conf`:
-
-```tmux
-set -g @plugin 'eduwass/tmux-palette'
-set -g @palette-key 'C-Space'             # optional, default: C-Space (no-prefix)
-set -g @palette-find-pane-key 'M-f'       # optional, no binding by default
-set -g @palette-move-pane-key 'M-m'       # optional, no binding by default
-```
-
-Then `prefix + I` to install. TPM clones the repo, runs `bun install` on first load, and binds the keys for you. Set `@palette-key 'off'` to skip the main binding and bind it yourself.
-
-</details>
 
 <details>
 <summary><b>Manual install</b></summary>
@@ -149,6 +69,95 @@ Reload: `tmux source-file ~/.tmux.conf` and hit your binding.
 
 </details>
 
+<details>
+<summary><b>Install via TPM</b> (Tmux Plugin Manager)</summary>
+
+<br/>
+
+Requires Bun: https://bun.sh
+
+Add to your `.tmux.conf`:
+
+```tmux
+set -g @plugin 'eduwass/tmux-palette'
+set -g @palette-key 'C-Space'             # optional, default: C-Space (no-prefix)
+set -g @palette-find-pane-key 'M-f'       # optional, no binding by default
+set -g @palette-move-pane-key 'M-m'       # optional, no binding by default
+```
+
+Then `prefix + I` to install. TPM clones the repo, runs `bun install` on first load, and binds the keys for you. Set `@palette-key 'off'` to skip the main binding and bind it yourself.
+
+</details>
+
+<details>
+<summary><b>Guided onboarding with an AI agent</b></summary>
+
+<br/>
+
+Choose this option if you want an agent to drive the onboarding experience: install the repo, set up the tmux binding, test that it opens, and optionally create your first custom commands or theme.
+
+Paste the prompt below into [Claude Code](https://claude.com/claude-code), [Codex](https://github.com/openai/codex), [opencode](https://opencode.ai), Cursor, or any AI coding agent.
+
+````
+You are helping a user onboard tmux-palette, a small command palette for tmux. Repo: https://github.com/eduwass/tmux-palette
+
+Goal: get the palette installed, bound to a key, tested inside tmux, and leave the user with one useful next customization if they want it.
+
+Follow steps in order. Confirm with the user before any change that modifies their files.
+
+1. Prerequisites
+- Run `bun --version`. If Bun is missing, point them to https://bun.sh/docs/installation and stop — do not auto-install.
+- Run `tmux -V`. If lower than 3.4, warn that `display-popup -E` may not work, then proceed.
+
+2. Clone and install
+- Default path: `~/Sites/tmux-palette`. Ask the user if they want a different location.
+- If the path already exists and contains the repo, run `git -C <path> pull` and skip cloning.
+- Otherwise: `git clone https://github.com/eduwass/tmux-palette <path> && cd <path> && bun install`.
+
+3. Bind it to a tmux key (required — the palette doesn't open without one)
+- Default suggestion: `bind -n C-Space run-shell "<absolute-path>/bin/tmux-palette.sh"` (no-prefix, opens with Ctrl+Space). Ask the user if they want a different key.
+- Append the bind line to `~/.tmux.conf` (create it if missing).
+- Run `tmux source-file ~/.tmux.conf` to reload (or tell them to do it).
+
+4. Pick a theme (optional)
+Ask: "Want to choose a built-in theme now, or should I try to match your terminal's theme?"
+
+If they want a built-in theme:
+- Tell them they can open the palette and choose **Switch Theme...** for live preview.
+- Mention the curated built-ins: Shades of Purple, Dracula, Tokyo Night, Catppuccin Mocha, Gruvbox Dark, Rosé Pine, Nord, Solarized Dark, Kanagawa Wave, GitHub Dark, One Dark, Ayu Dark.
+
+If they want to match their terminal, detect it:
+- Check $TERM_PROGRAM and $TERM. Common values: ghostty, iTerm.app, vscode, WezTerm, Apple_Terminal.
+- Read the relevant config:
+  - Ghostty:    ~/.config/ghostty/config
+  - Alacritty:  ~/.config/alacritty/alacritty.toml (or .yml)
+  - Kitty:      ~/.config/kitty/kitty.conf  (follow `include` lines)
+  - WezTerm:    ~/.wezterm.lua or ~/.config/wezterm/wezterm.lua
+  - iTerm2 / others: ask the user for hex codes; their configs are hard to parse.
+- Extract: background → `bg`, foreground → `fg`, cursor color → `accent`, selection bg → `selected`. Derive `panel` (slightly lighter than bg) and `muted` (fg dimmed).
+- Write `~/.config/tmux-palette/theme.json` with `{ bg, panel, selected, fg, muted, accent }`. The palette reads this at runtime; do NOT edit source files.
+- Report the colors you picked.
+
+5. Test
+Tell the user to press their binding. Ask what they see.
+
+6. Offer one useful follow-up
+When it works, ask:
+- "Want a quick custom command, like opening lazygit or htop in a popup?" — write items to `~/.config/tmux-palette/commands.json` (array of Items). Action types: `{ "tmux": "..." }`, `{ "shell": "..." }`, `{ "popup": "..." }`, `{ "palette": "name" }`. Do NOT edit source files.
+- "Want a focused palette for PRs, Docker logs, npm scripts, or git branches?" — copy an example from `examples/` into `~/.config/tmux-palette/palettes/` and bind it.
+- "Want custom shortcut labels?" — write `~/.config/tmux-palette/shortcuts.json` mapping item titles to label strings.
+
+Only do one follow-up unless the user asks for more.
+
+Constraints
+- Prefer `~/.config/tmux-palette/*.json` over source edits. The user's config survives upstream pulls; source edits don't.
+- Do not push to git or modify files outside the user's home directory.
+- Do not auto-install Bun or any other system package.
+- If anything fails, stop and explain what went wrong.
+````
+
+</details>
+
 ## Usage
 
 - **Type** to filter. Multi-word search is supported (`split horiz`).
@@ -165,7 +174,9 @@ Window", `cs` for "Choose Session", `sh` for "Split Horizontal", etc.
 Drop-in user config lives in `~/.config/tmux-palette/`. One JSON file per
 concern — no source edits, no fork, survives upstream pulls.
 
-### Custom palettes (`~/.config/tmux-palette/palettes/<name>.json`)
+### Custom palettes
+
+Path: `~/.config/tmux-palette/palettes/<name>.json`
 
 Define a brand-new palette and bind any key to its name:
 
