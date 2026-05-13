@@ -16,7 +16,7 @@ import {
   type RowAction,
 } from "./render"
 import { makeColors, resolveActiveTheme } from "./theme"
-import type { Item, PaletteDef, PopupAction } from "./types"
+import type { ActionContext, Item, PaletteDef, PopupAction } from "./types"
 import { userAliases, userShortcuts, userSizing } from "./userConfig"
 
 export type PaletteLoader = (name: string) => Promise<PaletteDef | null>

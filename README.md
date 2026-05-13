@@ -1,28 +1,23 @@
 # tmux-palette
 
-A Raycast-style command palette for tmux. Runs on [Bun](https://bun.sh),
-zero runtime dependencies, snappy enough to feel like a native widget
-(~30ms cold start).
+A command palette for tmux. It runs on [Bun](https://bun.sh), has no runtime
+dependencies, and opens quickly enough to use as a regular tmux binding.
 
-Type a few letters, pick a command, hit enter — split a pane, jump to a
-window, detach a session. Then push it further: pop open `htop` or `lazygit`
-mid-session, hotkey a category-filtered palette, pipe `gh pr list` into a
-live PR picker fzf-style, reskin the whole thing to match your terminal.
-Every knob lives in `~/.config/tmux-palette/*.json` — no fork, no source
-edits, no rebuild.
+Type a few letters, pick a command, hit enter: split a pane, jump to a window,
+detach a session, open a popup tool, or switch to a custom palette. User config
+lives in `~/.config/tmux-palette/*.json`, so local changes survive repo updates.
 
 https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 
 ## Highlights
 
-- **~30ms cold start** — feels native, not slow
+- **Fast startup** — designed for frequent use from a tmux key binding
 - **Custom palettes** — define your own with [a single JSON file](#custom-palettes-rcfgtmux-palettepalettesnamejson), bind to any key
 - **Hide built-ins** — declutter the default palette via [`hidden.json`](#hiddenjson--hide-built-in-items)
 - **Mobile-aware** — [auto-fullscreens](#sizingjson--popup-dimensions) on narrow terminals (Moshi / Blink on iOS)
-- **70+ themes built in** — Dracula, Tokyo Night, Catppuccin, Gruvbox, Rosé Pine, Nord, Solarized, Kanagawa, GitHub, Ayu, all the usuals from [terminalcolors.com](https://terminalcolors.com/) — [pick one in the palette with live preview](#themes), or [drop your own](#custom-themes)
-- **One-key TUI launcher** — drop `{ "popup": "htop" }` into any palette item and tmux opens it in a centered popup. Same trick for `btop`, `lazygit`, log tails, `fzf` tools, anything terminal-shaped.
-- **Plug in any program** — point a palette at any shell command that prints JSON or one-item-per-line (Bash, Python, Go, whatever). Live GitHub PRs, Docker containers, npm scripts, kubectl — fzf-style pluggability. Drop-in examples in [`examples/`](examples).
-- **AI-agent install** — paste a prompt into Claude Code / Codex / opencode and it's done
+- **Themes built in** — Dracula, Tokyo Night, Catppuccin, Gruvbox, Rosé Pine, Nord, Solarized, Kanagawa, GitHub, Ayu, and more. [Pick one with live preview](#themes), or [drop your own](#custom-themes)
+- **Popup tools** — use `{ "popup": "htop" }` to open tools like `btop`, `lazygit`, log tails, or `fzf` scripts in a tmux popup
+- **Scriptable sources** — point a palette at a shell command that prints JSON or one item per line. Examples live in [`examples/`](examples)
 - **No fork required** — every customization lives in `~/.config/tmux-palette/*.json`
 
 ## Install
@@ -305,14 +300,14 @@ Arrow-key through the list — every theme lives-previews instantly so you
 see the colors apply before you commit. Enter saves it and returns you to
 the previous palette with the new theme on; Esc cancels.
 
-Bundled themes (~70) cover the curated set from
+Bundled themes cover the curated set from
 [terminalcolors.com](https://terminalcolors.com/) — Dracula, Tokyo Night,
 Catppuccin Frappé/Latte/Macchiato/Mocha, Gruvbox, Rosé Pine, Nord,
 Solarized, Kanagawa, GitHub Dark/Light, Ayu, Everforest, Night Owl, One
 Dark/Light, Shades of Purple, Tomorrow Night, Zenbones, and many more.
 Their bg/fg track Ghostty's official theme bundle; panel/selected/muted/
-accent are tuned for readable contrast. To tweak one, edit
-`src/themes-bundled.ts` directly.
+accent are tuned for readable contrast. To tweak a theme without editing the
+repo, add a custom theme file or override individual colors in `theme.json`.
 
 ### `theme.json` — set the active theme
 
