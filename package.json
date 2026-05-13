@@ -1,6 +1,6 @@
 {
   "name": "tmux-palette",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Raycast-style command palette for tmux — fast, scriptable, easy to extend",
   "bin": {

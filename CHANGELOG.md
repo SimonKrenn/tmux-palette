@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.1 - 2026-05-13
+
+- Fix: New Session command now switches you to the new session (was silently creating it in the background and leaving you on the current one).
+- Fix: Wrapper script works on macOS's bash 3.2.
+- Find Pane: cursor starts on the current pane; other panes render muted so the current one reads as the visual anchor.
+
 ## v0.1.0 - 2026-05-13
 
 Initial public release.
