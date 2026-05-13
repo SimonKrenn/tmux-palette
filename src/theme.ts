@@ -1,6 +1,6 @@
 import type { Colors, Theme } from "./types"
 
-export const shadesOfPurple: Theme = {
+const shadesOfPurple: Theme = {
   bg: "#1e1d40",
   panel: "#2d2b55",
   selected: "#504d7a",
@@ -9,7 +9,7 @@ export const shadesOfPurple: Theme = {
   accent: "#fad000",
 }
 
-export const dracula: Theme = {
+const dracula: Theme = {
   bg: "#282a36",
   panel: "#21222c",
   selected: "#44475a",
@@ -18,7 +18,7 @@ export const dracula: Theme = {
   accent: "#bd93f9",
 }
 
-export const tokyoNight: Theme = {
+const tokyoNight: Theme = {
   bg: "#1a1b26",
   panel: "#16161e",
   selected: "#283457",
@@ -27,7 +27,7 @@ export const tokyoNight: Theme = {
   accent: "#7aa2f7",
 }
 
-export const minimal: Theme = {
+const minimal: Theme = {
   bg: "#000000",
   panel: "#0a0a0a",
   selected: "#1f1f1f",
@@ -36,7 +36,7 @@ export const minimal: Theme = {
   accent: "#ffffff",
 }
 
-export const themes: Record<string, Theme> = {
+const themes: Record<string, Theme> = {
   "shades-of-purple": shadesOfPurple,
   dracula,
   "tokyo-night": tokyoNight,
@@ -59,12 +59,12 @@ function rgb(hex: string): [number, number, number] {
   return [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16)]
 }
 
-export function fg(hex: string): string {
+function fg(hex: string): string {
   const [r, g, b] = rgb(hex)
   return `\x1b[38;2;${r};${g};${b}m`
 }
 
-export function bg(hex: string): string {
+function bg(hex: string): string {
   const [r, g, b] = rgb(hex)
   return `\x1b[48;2;${r};${g};${b}m`
 }
