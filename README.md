@@ -21,7 +21,7 @@ https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 - **Mobile-aware** — [auto-fullscreens](#sizingjson--popup-dimensions) on narrow terminals (Moshi / Blink on iOS)
 - **Themeable** — built-ins (`shades-of-purple`, `dracula`, `tokyo-night`, `minimal`) or [your own colors](#themejson--color-overrides)
 - **One-key TUI launcher** — drop `{ "popup": "htop" }` into any palette item and tmux opens it in a centered popup. Same trick for `btop`, `lazygit`, log tails, `fzf` tools, anything terminal-shaped.
-- **Plug in any program** — point a palette at a script that prints JSON items (Bash, Python, Go, whatever) and the palette shows them. Live GitHub PRs, dev servers, k8s pods — fzf-style pluggability.
+- **Plug in any program** — point a palette at any shell command that prints JSON or one-item-per-line (Bash, Python, Go, whatever). Live GitHub PRs, Docker containers, npm scripts, kubectl — fzf-style pluggability. Drop-in examples in [`examples/`](examples).
 - **AI-agent install** — paste a prompt into Claude Code / Codex / opencode and it's done
 - **No fork required** — every customization lives in `~/.config/tmux-palette/*.json`
 
@@ -183,6 +183,10 @@ bind -n M-q run-shell "~/Sites/tmux-palette/bin/tmux-palette.sh my-favs"
 All keys optional. Resolution order: `from` → `fromCategory` → `command` → `items`.
 
 #### Plugins
+
+> Drop-in ready-to-use palettes live in [`examples/`](examples) — git branches,
+> GitHub PRs (with color-coded status dots), Docker container logs,
+> npm scripts, file picker. Copy one and bind a key.
 
 The `command` field is the plugin escape hatch — fzf-style. Anything
 that prints to stdout becomes a palette. Two output modes:
