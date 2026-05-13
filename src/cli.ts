@@ -102,50 +102,44 @@ const palettes: Record<string, PaletteDef> = {
   "move-pane": movePane,
 }
 
+async function buildCustomPalette(name: string): Promise<PaletteDef | null> {
+  const custom = userPalette(name)
+  if (!custom) return null
+  const baseCommands: Item[] =
+    typeof commands.items === "function" ? await commands.items() : commands.items
+  const allMain: Item[] = [...baseCommands, ...userCommands()]
+  const referenced: Item[] = (custom.from ?? [])
+    .map((title) => allMain.find((i) => i.title === title))
+    .filter((i): i is Item => Boolean(i))
+  const byCategory: Item[] = custom.fromCategory
+    ? allMain.filter((i) => i.category === custom.fromCategory)
+    : []
+  const pluginItems: Item[] = custom.command
+    ? runPluginCommand(custom.command, custom.action, custom.icon, custom.iconColor)
+    : []
+  return {
+    title: custom.title ?? name,
+    grouped: custom.grouped ?? false,
+    emptyText: custom.emptyText,
+    items: [...referenced, ...byCategory, ...pluginItems, ...(custom.items ?? [])],
+  }
+}
+
+async function applyCommandsOverrides(def: PaletteDef): Promise<PaletteDef> {
+  const extras = userCommands()
+  const hidden = userHidden()
+  const baseItems: Item[] = typeof def.items === "function" ? await def.items() : def.items
+  const merged = [...baseItems, ...extras].filter((i) => !hidden.has(i.title))
+  if (merged.length === baseItems.length && !extras.length) return def
+  return { ...def, items: merged }
+}
+
 // Resolves a palette by name: built-in registry → ~/.config/tmux-palette/palettes/<name>.json.
 // Called for both top-level CLI invocations and nested in-process navigation.
 async function loadPalette(name: string): Promise<PaletteDef | null> {
-  let def: PaletteDef | undefined = palettes[name]
-
-  if (!def) {
-    const custom = userPalette(name)
-    if (!custom) return null
-    const baseCommands: Item[] =
-      typeof commands.items === "function" ? await commands.items() : commands.items
-    const allMain: Item[] = [...baseCommands, ...userCommands()]
-    const referenced: Item[] = (custom.from ?? [])
-      .map((title) => allMain.find((i) => i.title === title))
-      .filter((i): i is Item => Boolean(i))
-    const byCategory: Item[] = custom.fromCategory
-      ? allMain.filter((i) => i.category === custom.fromCategory)
-      : []
-    const pluginItems: Item[] = custom.command
-      ? runPluginCommand(custom.command, custom.action, custom.icon, custom.iconColor)
-      : []
-    const items = [
-      ...referenced,
-      ...byCategory,
-      ...pluginItems,
-      ...(custom.items ?? []),
-    ]
-    def = {
-      title: custom.title ?? name,
-      grouped: custom.grouped ?? false,
-      emptyText: custom.emptyText,
-      items,
-    }
-  }
-
-  if (name === "commands") {
-    const extras = userCommands()
-    const hidden = userHidden()
-    const baseItems: Item[] = typeof def.items === "function" ? await def.items() : def.items
-    const merged = [...baseItems, ...extras].filter((i) => !hidden.has(i.title))
-    if (merged.length !== baseItems.length || extras.length) {
-      def = { ...def, items: merged }
-    }
-  }
-
+  const def = palettes[name] ?? (await buildCustomPalette(name))
+  if (!def) return null
+  if (name === "commands") return applyCommandsOverrides(def)
   return def
 }
 

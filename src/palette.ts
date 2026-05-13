@@ -169,21 +169,22 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
     return renderDefaultItem(row.item, colors, isSelected, bodyWidth)
   }
 
+  function ensureSelectable(vis: Item[]): void {
+    if (isSelectable(vis[selected])) return
+    const f = firstSelectable(vis)
+    selected = f >= 0 ? f : 0
+  }
+
   function render(): void {
     const width = stdout.columns ?? 80
     const height = stdout.rows ?? 24
     const vis = visible()
-
-    if (!isSelectable(vis[selected])) {
-      const f = firstSelectable(vis)
-      selected = f >= 0 ? f : 0
-    }
+    ensureSelectable(vis)
 
     const rows = buildRows(vis, grouped, filter.length > 0)
-    // Chrome rows: header + search + spacer + footer spacer + footer = 5,
-    // plus a top + bottom blank pad when there's no tmux border (the
-    // border replaces those pads visually, so skipping them avoids the
-    // popup looking double-padded).
+    // When the tmux border is on it visually replaces our top/bottom pad
+    // rows, so we skip them (chrome = 5 instead of 7) and shift mouse-y
+    // mapping by 1.
     const bordered = process.env.TMUX_PALETTE_BORDERED === "1"
     const chromeRows = bordered ? 5 : 7
     const listHeight = Math.max(1, height - chromeRows)
@@ -194,38 +195,22 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
     const blank = `${colors.panel}${" ".repeat(width)}${colors.reset}`
 
     const header = composeHeader(title, width, padX, bodyWidth, colors)
-    // Mouse y is 1-indexed inside the popup. With no border the header is on
-    // row 2 (after top pad); bordered, top pad is gone so it shifts to row 1.
-    const headerY = bordered ? 1 : 2
-    escAction = { y: headerY, xStart: header.escX1, xEnd: header.escX2 }
+    escAction = { y: bordered ? 1 : 2, xStart: header.escX1, xEnd: header.escX2 }
 
-    // List rows start after the chrome above them: top_pad? + header + search + spacer.
-    const listStartY = bordered ? 4 : 5
-    const body = composeListBody(rows, scroll, listHeight, selected, bodyWidth, padX, colors, listStartY,
+    const body = composeListBody(rows, scroll, listHeight, selected, bodyWidth, padX, colors, bordered ? 4 : 5,
       (row, sel) => renderRowContent(row, sel, bodyWidth))
     rowActions = body.rowActions
 
     const footerText = buildFooterText(vis.filter(isSelectable).length, emptyText)
-
-    const lines = bordered
-      ? [
-          header.line,
-          composeSearch(filter, padX, bodyWidth, colors),
-          blank,
-          ...body.lines,
-          blank,
-          composeFooter(footerText, padX, bodyWidth, colors),
-        ]
-      : [
-          blank,
-          header.line,
-          composeSearch(filter, padX, bodyWidth, colors),
-          blank,
-          ...body.lines,
-          blank,
-          composeFooter(footerText, padX, bodyWidth, colors),
-          blank,
-        ]
+    const inner = [
+      header.line,
+      composeSearch(filter, padX, bodyWidth, colors),
+      blank,
+      ...body.lines,
+      blank,
+      composeFooter(footerText, padX, bodyWidth, colors),
+    ]
+    const lines = bordered ? inner : [blank, ...inner, blank]
 
     // Synchronized output + cursor-home (no clear) so the frame swaps
     // atomically without a blank flash, even when arrow keys repeat fast.
@@ -243,46 +228,41 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
     process.exit(0)
   }
 
-  // Builds the shell command that powers a { popup } action: open a sized
-  // tmux popup running `cmd`, then re-launch the palette at `relaunchName`
-  // when it closes. tmux only allows one popup per client so we can't nest
-  // or resize mid-run — exit + reopen is the only way to get a different
-  // size for the popup-action contents.
-  function buildPopupRelaunchCommand(cmd: string, relaunchName: string): string {
+  // Builds the tmux display-popup flags for a { popup } action: -B + body
+  // style if no border, -b/-s/-S triplet otherwise.
+  function buildPopupFlags(): string {
     const sizing = userSizing()
     const popupBorder = sizing.popupBorder ?? "none"
     const bodyStyle = sizing.popupBodyStyle ?? `bg=${theme.panel}`
+    if (popupBorder === "none") return `-B -s '${bodyStyle}'`
     const borderStyle = sizing.popupBorderStyle ?? `fg=${theme.accent},bg=default`
+    return `-b ${popupBorder} -s '${bodyStyle}' -S '${borderStyle}'`
+  }
+
+  // tmux only allows one popup per client so we can't nest or resize mid-run.
+  // For { popup } actions we exit the palette, run a sized popup with the
+  // command, then re-launch the palette at relaunchName once it closes.
+  function buildPopupRelaunchCommand(cmd: string, relaunchName: string): string {
+    const sizing = userSizing()
     const popupW = sizing.popupWidth ?? "80%"
     const popupH = sizing.popupHeight ?? "80%"
-    const borderArg = popupBorder === "none"
-      ? `-B -s '${bodyStyle}'`
-      : `-b ${popupBorder} -s '${bodyStyle}' -S '${borderStyle}'`
     const bin = process.env.TMUX_PALETTE_BIN ?? "tmux-palette"
     // The trailing relaunch uses `run-shell -b` so tmux returns immediately;
     // the wrapper script itself opens a new display-popup for the palette.
-    return `tmux display-popup -E ${borderArg} -h ${popupH} -w ${popupW} ${cmd}; tmux run-shell -b '${bin} ${relaunchName}'`
+    return `tmux display-popup -E ${buildPopupFlags()} -h ${popupH} -w ${popupW} ${cmd}; tmux run-shell -b '${bin} ${relaunchName}'`
   }
 
-  async function activate(item: Item): Promise<void> {
-    // In-process nested navigation. If no loader is wired (shouldn't happen
-    // from cli.ts) we fall through to the dispatch path, which encodes the
-    // palette action as a tmux run-shell call.
-    if ("palette" in item.action && loader) {
-      await navigateTo(item.action.palette)
-      return
+  function dispatchPopupAction(cmd: string): never {
+    cleanup()
+    if (cmdFile) {
+      try {
+        writeFileSync(cmdFile, `shell:${buildPopupRelaunchCommand(cmd, currentName)}`)
+      } catch {}
     }
-    // Popup actions: exit, then have the wrapper run a sized popup and
-    // re-launch us at the current palette when it closes.
-    if ("popup" in item.action) {
-      cleanup()
-      if (cmdFile) {
-        try {
-          writeFileSync(cmdFile, `shell:${buildPopupRelaunchCommand(item.action.popup, currentName)}`)
-        } catch {}
-      }
-      process.exit(0)
-    }
+    process.exit(0)
+  }
+
+  async function dispatchDirectAction(item: Item): Promise<never> {
     cleanup()
     if ("run" in item.action) {
       await item.action.run({ cmdFile })
@@ -290,6 +270,15 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
     }
     dispatchToFile(item.action, cmdFile)
     process.exit(0)
+  }
+
+  async function activate(item: Item): Promise<void> {
+    if ("palette" in item.action && loader) {
+      await navigateTo(item.action.palette)
+      return
+    }
+    if ("popup" in item.action) dispatchPopupAction(item.action.popup)
+    await dispatchDirectAction(item)
   }
 
   function escPressed(): void {
