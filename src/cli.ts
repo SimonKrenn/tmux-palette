@@ -3,7 +3,11 @@ import { commands } from "./palettes/commands"
 import { findPane } from "./palettes/find-pane"
 import { movePane } from "./palettes/move-pane"
 import type { Item, PaletteDef } from "./types"
-import { userCommands } from "./userConfig"
+import { userCommands, userSizing } from "./userConfig"
+
+const DEFAULT_WIDTH = 90
+const DEFAULT_MAX_HEIGHT = 24
+const DEFAULT_PAD_X = 3
 
 const palettes: Record<string, PaletteDef> = {
   commands,
@@ -28,15 +32,20 @@ if (name === "commands") {
   }
 }
 
-// Measure mode: print desired popup rows to stdout. Bash wrapper uses
-// this to size the popup so the height fits the palette's content
-// (capped at the client height). Width stays Raycast-style fixed.
+// Measure mode: print "<rows>\t<width>\t<padX>" so the bash wrapper
+// can size the popup. Defaults are applied here so sizing.json
+// overrides flow through naturally.
 if (process.argv.includes("--measure")) {
   const items: Item[] = typeof def.items === "function" ? await def.items() : def.items
   const cats = new Set(items.map((i) => i.category).filter((c): c is string => Boolean(c))).size
   // chrome: top pad (1) + header (1) + search (1) + spacer (1) + footer spacer (1) + footer (1) + bottom pad (1) = 7
-  const rows = items.length + cats + 7
-  console.log(rows)
+  const sizing = userSizing()
+  const maxHeight = sizing.maxHeight ?? DEFAULT_MAX_HEIGHT
+  const width = sizing.width ?? DEFAULT_WIDTH
+  const padX = sizing.padX ?? DEFAULT_PAD_X
+  const desired = items.length + cats + 7
+  const rows = Math.min(desired, maxHeight)
+  console.log(`${rows}\t${width}\t${padX}`)
   process.exit(0)
 }
 

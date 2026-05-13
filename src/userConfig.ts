@@ -37,3 +37,10 @@ export function userCommands(): Item[] {
   if (!_commands) _commands = loadJSON<Item[]>("commands.json", [])
   return _commands
 }
+
+export type Sizing = { width?: number; maxHeight?: number; padX?: number }
+let _sizing: Sizing | null = null
+export function userSizing(): Sizing {
+  if (!_sizing) _sizing = loadJSON<Sizing>("sizing.json", {})
+  return _sizing
+}

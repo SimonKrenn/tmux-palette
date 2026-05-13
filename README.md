@@ -207,6 +207,21 @@ Auto-aliases (initials like `nw`) still work for free, invisibly.
 Applies to all palettes. Built-in themes (`shades-of-purple` default,
 `dracula`, `tokyo-night`, `minimal`) live in `src/theme.ts`.
 
+### `sizing.json` — popup dimensions
+
+```json
+{
+  "maxHeight": 24,
+  "width": 90,
+  "padX": 3
+}
+```
+
+All keys optional. Defaults shown. `maxHeight` caps how tall the popup
+gets when you have lots of commands (the popup still shrinks below this
+when there's less content). `width` is the fixed popup width. `padX` is
+the horizontal padding inside the popup.
+
 ## Extending (deeper)
 
 For things JSON can't express — custom palettes, custom row rendering,

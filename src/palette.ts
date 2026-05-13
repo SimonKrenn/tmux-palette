@@ -132,8 +132,8 @@ export async function runPalette(def: PaletteDef): Promise<void> {
     const listHeight = Math.max(1, height - 7)
     scroll = clampScroll(rows, listHeight, selected, scroll)
 
-    const padX = 3
-    const bodyWidth = width - padX * 2
+    const padX = Math.max(0, Number(process.env.TMUX_PALETTE_PADX) || 3)
+    const bodyWidth = Math.max(1, width - padX * 2)
     const blank = `${colors.panel}${" ".repeat(width)}${colors.reset}`
 
     const header = composeHeader(title, width, padX, bodyWidth, colors)
