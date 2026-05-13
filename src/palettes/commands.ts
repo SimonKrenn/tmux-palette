@@ -52,7 +52,7 @@ export const commands = definePalette({
     { icon: "󱂬", category: "Sessions", title: "Choose Session",
       action: { tmux: "choose-tree -Zs" } },
     { icon: "󰐕", category: "Sessions", title: "New Session",
-      action: { tmux: "command-prompt 'new-session -s \"%%\"'" } },
+      action: { tmux: "command-prompt -p 'New session name:' 'new-session -d -s \"%1\" ; switch-client -t \"%1\"'" } },
     { icon: "󰏫", category: "Sessions", title: "Rename Session",
       action: { tmux: "command-prompt -I '#S' 'rename-session -- \"%%\"'" } },
     { icon: "󰁔", category: "Sessions", title: "Next Session",
