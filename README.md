@@ -19,6 +19,19 @@ lives in `~/.config/tmux-palette/*.json`, so local changes survive repo updates.
 - **Small codebase** — roughly 2k LOC, so it is easy to audit, fork, or patch locally
 - **No fork required** — every customization lives in `~/.config/tmux-palette/*.json`
 
+## What you can build
+
+- Open `lazygit`, `htop`, `btop`, or log tails in a centered tmux popup.
+- Create a PR explorer from `gh pr list` that opens PRs in your browser.
+- Create a GitHub Actions picker that jumps straight to a workflow run.
+- Pick a Docker container and tail its logs in a popup.
+- List npm scripts from the current project and run one from tmux.
+- Bind focused palettes to separate keys, like `M-t` for Tools or `M-a` for Appearance.
+- Keep a personal favorites palette without editing the repo.
+
+See [`examples/`](examples) for drop-in palettes you can copy into
+`~/.config/tmux-palette/palettes/`.
+
 ## Install
 
 <details>
