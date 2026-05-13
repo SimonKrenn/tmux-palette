@@ -14,7 +14,7 @@ function isFullTheme(obj: unknown): obj is Theme {
 }
 
 let _userThemes: Record<string, Theme> | null = null
-export function userThemes(): Record<string, Theme> {
+function userThemes(): Record<string, Theme> {
   if (_userThemes) return _userThemes
   const out: Record<string, Theme> = {}
   try {
@@ -65,7 +65,7 @@ export function listThemes(): ThemeListEntry[] {
  *
  * Throws on unknown slug so typos surface during palette load.
  */
-export function resolveTheme(theme: Theme | string | undefined): Theme {
+function resolveTheme(theme: Theme | string | undefined): Theme {
   if (!theme) return bundledThemeMap[DEFAULT_SLUG]!
   if (typeof theme === "string") {
     const user = userThemes()[theme]
@@ -89,7 +89,7 @@ type UserThemeFile =
   | Partial<Theme>
 
 let _userThemeFile: UserThemeFile | null | undefined = undefined
-export function userThemeFile(): UserThemeFile | null {
+function userThemeFile(): UserThemeFile | null {
   if (_userThemeFile !== undefined) return _userThemeFile
   try {
     const raw = readFileSync(`${CONFIG_DIR}/theme.json`, "utf8")

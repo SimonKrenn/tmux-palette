@@ -22,7 +22,7 @@ function popupFlags(): string {
 //   shell:<cmd>  → wrapper runs the shell command directly
 // `palette` is sugar for "open another palette via run-shell -b".
 // `run` executes inline (no dispatch needed).
-export function encodeAction(action: Action): string | null {
+function encodeAction(action: Action): string | null {
   if ("tmux" in action) return `tmux:${action.tmux}`
   if ("shell" in action) return `shell:${action.shell}`
   if ("popup" in action) return `tmux:display-popup -E ${popupFlags()} -h 80% -w 80% ${action.popup}`

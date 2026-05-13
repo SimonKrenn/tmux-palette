@@ -11,7 +11,7 @@ const WIDE_RANGES: readonly [number, number][] = [
   [0x1f300, 0x1faff],
 ]
 
-export function strip(s: string): string {
+function strip(s: string): string {
   return s.replace(/\x1b\[[0-9;]*m/g, "")
 }
 

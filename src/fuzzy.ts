@@ -32,7 +32,7 @@ function subsequenceScore(hs: string, nd: string): number {
   return Math.max(1, score)
 }
 
-export function fuzzyScore(haystack: string, needle: string): number {
+function fuzzyScore(haystack: string, needle: string): number {
   if (!needle) return 1
   const hs = haystack.toLowerCase()
   const nd = needle.toLowerCase()

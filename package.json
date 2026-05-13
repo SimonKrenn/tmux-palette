@@ -8,10 +8,13 @@
   },
   "scripts": {
     "start": "bun src/cli.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:dead-code": "fallow dead-code",
+    "check:dupes": "fallow dupes"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "fallow": "^2.69.0"
   },
   "peerDependencies": {
     "typescript": "^5"

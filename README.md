@@ -15,7 +15,7 @@ https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 - **Custom palettes** — define your own with [a single JSON file](#custom-palettes-rcfgtmux-palettepalettesnamejson), bind to any key
 - **Hide built-ins** — declutter the default palette via [`hidden.json`](#hiddenjson--hide-built-in-items)
 - **Mobile-aware** — [auto-fullscreens](#sizingjson--popup-dimensions) on narrow terminals (Moshi / Blink on iOS)
-- **Themes built in** — Dracula, Tokyo Night, Catppuccin, Gruvbox, Rosé Pine, Nord, Solarized, Kanagawa, GitHub, Ayu, and more. [Pick one with live preview](#themes), or [drop your own](#custom-themes)
+- **Curated themes** — 12 built-in themes including Shades of Purple, Dracula, Tokyo Night, Catppuccin, Gruvbox, Nord, and Solarized. [Pick one with live preview](#themes), or [drop your own](#custom-themes)
 - **Popup tools** — use `{ "popup": "htop" }` to open tools like `btop`, `lazygit`, log tails, or `fzf` scripts in a tmux popup
 - **Scriptable sources** — point a palette at a shell command that prints JSON or one item per line. Examples live in [`examples/`](examples)
 - **No fork required** — every customization lives in `~/.config/tmux-palette/*.json`
@@ -300,14 +300,12 @@ Arrow-key through the list — every theme lives-previews instantly so you
 see the colors apply before you commit. Enter saves it and returns you to
 the previous palette with the new theme on; Esc cancels.
 
-Bundled themes cover the curated set from
-[terminalcolors.com](https://terminalcolors.com/) — Dracula, Tokyo Night,
-Catppuccin Frappé/Latte/Macchiato/Mocha, Gruvbox, Rosé Pine, Nord,
-Solarized, Kanagawa, GitHub Dark/Light, Ayu, Everforest, Night Owl, One
-Dark/Light, Shades of Purple, Tomorrow Night, Zenbones, and many more.
-Their bg/fg track Ghostty's official theme bundle; panel/selected/muted/
-accent are tuned for readable contrast. To tweak a theme without editing the
-repo, add a custom theme file or override individual colors in `theme.json`.
+Bundled themes are intentionally limited to a small curated set: Shades of
+Purple, Dracula, Tokyo Night, Catppuccin Mocha, Gruvbox Dark, Rosé Pine, Nord,
+Solarized Dark, Kanagawa Wave, GitHub Dark, One Dark, and Ayu Dark. Their
+panel/selected/muted/accent colors are tuned for readable contrast. To tweak a
+theme without editing the repo, add a custom theme file or override individual
+colors in `theme.json`.
 
 ### `theme.json` — set the active theme
 

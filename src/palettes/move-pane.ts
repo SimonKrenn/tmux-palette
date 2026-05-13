@@ -1,15 +1,6 @@
-import { spawnSync } from "node:child_process"
 import { definePalette } from "../palette"
+import { tmux, tmuxQuote } from "../tmux"
 import type { Item } from "../types"
-
-function tmux(args: string[]): string {
-  const r = spawnSync("tmux", args, { stdio: ["ignore", "pipe", "pipe"] })
-  return r.stdout?.toString().trimEnd() ?? ""
-}
-
-function tmuxQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`
-}
 
 function newWindowItems(sessions: string[], paneId: string): Item[] {
   return sessions.map((session) => ({

@@ -1,16 +1,7 @@
-import { spawnSync } from "node:child_process"
 import { definePalette } from "../palette"
 import { multiFuzzyScore } from "../fuzzy"
+import { tmux, tmuxQuote } from "../tmux"
 import type { Colors, Item, RenderItemCtx } from "../types"
-
-function tmux(args: string[]): string {
-  const r = spawnSync("tmux", args, { stdio: ["ignore", "pipe", "pipe"] })
-  return r.stdout?.toString().trimEnd() ?? ""
-}
-
-function tmuxQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`
-}
 
 function detectAgent(command: string, title: string): string {
   const direct = new Set(["claude", "codex", "aider", "cursor-agent", "opencode", "gemini", "ollama"])
