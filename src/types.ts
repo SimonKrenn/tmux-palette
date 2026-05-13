@@ -107,4 +107,10 @@ export type PaletteDef = {
    * before the next frame paints. Used by the theme switcher.
    */
   onSelect?: (item: Item | undefined) => Theme | undefined
+  /**
+   * Picks the initial highlighted item. Receives the resolved items and
+   * returns an index (or -1 to use the first selectable). Used by find-pane
+   * to start the cursor on the user's current pane.
+   */
+  initialSelected?: (items: Item[]) => number
 }

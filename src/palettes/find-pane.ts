@@ -209,7 +209,13 @@ function renderPane(
 ): string {
   const p = data.pane
   const { color: markerColor, char: markerChar } = paneMarker(p, colors)
-  const titleStyle = p.isCurrent ? colors.muted : active ? colors.bold + colors.fg : colors.fg
+  // Hierarchy: hovered row > current pane > other panes. Other panes fade
+  // so the cursor's "you are here" anchor reads at a glance.
+  const titleStyle = active
+    ? colors.bold + colors.fg
+    : p.isCurrent
+      ? colors.fg
+      : colors.muted
 
   let left = `${colors.muted}${data.treePrefix}${colors.reset}${rowBg}${markerColor}${markerChar}${colors.reset}${rowBg} ${titleStyle}${p.paneTitle}${colors.reset}${rowBg}`
   let leftPlainW = data.treePrefix.length + 1 + 1 + p.paneTitle.length
@@ -272,4 +278,9 @@ export const findPane = definePalette({
   items: buildItems,
   renderItem,
   filter: filterTree,
+  initialSelected: (items) =>
+    items.findIndex((i) => {
+      const d = i.data as ItemData | undefined
+      return d?.kind === "pane" && d.pane.isCurrent
+    }),
 })

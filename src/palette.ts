@@ -98,7 +98,7 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
   const cmdFile = process.env.TMUX_PALETTE_CMD
 
   let filter = ""
-  let selected = 0
+  let selected = currentDef.initialSelected ? Math.max(0, currentDef.initialSelected(items)) : 0
   let scroll = 0
   let rowActions: RowAction[] = []
   let escAction: { y: number; xStart: number; xEnd: number } | undefined
