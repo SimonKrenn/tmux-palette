@@ -7,6 +7,8 @@ Type a few letters, pick a command, hit enter: split a pane, jump to a window,
 detach a session, open a popup tool, or switch to a custom palette. User config
 lives in `~/.config/tmux-palette/*.json`, so local changes survive repo updates.
 
+https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
+
 ## Highlights
 
 - **Fast startup** — designed for frequent use from a tmux key binding
