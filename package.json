@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "bun src/cli.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit",
     "check:dead-code": "fallow dead-code",
     "check:dupes": "fallow dupes"

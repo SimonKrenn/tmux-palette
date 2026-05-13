@@ -18,6 +18,7 @@ https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 - **Curated themes** — 12 built-in themes including Shades of Purple, Dracula, Tokyo Night, Catppuccin, Gruvbox, Nord, and Solarized. [Pick one with live preview](#themes), or [drop your own](#custom-themes)
 - **Popup tools** — use `{ "popup": "htop" }` to open tools like `btop`, `lazygit`, log tails, or `fzf` scripts in a tmux popup
 - **Scriptable sources** — point a palette at a shell command that prints JSON or one item per line. Examples live in [`examples/`](examples)
+- **Small codebase** — roughly 2k LOC, so it is easy to audit, fork, or patch locally
 - **No fork required** — every customization lives in `~/.config/tmux-palette/*.json`
 
 ## Install
