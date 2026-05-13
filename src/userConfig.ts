@@ -38,6 +38,15 @@ export function userCommands(): Item[] {
   return _commands
 }
 
+let _hidden: Set<string> | null = null
+export function userHidden(): Set<string> {
+  if (!_hidden) {
+    const list = loadJSON<string[]>("hidden.json", [])
+    _hidden = new Set(list)
+  }
+  return _hidden
+}
+
 export type Sizing = {
   width?: number
   maxHeight?: number
@@ -50,4 +59,18 @@ let _sizing: Sizing | null = null
 export function userSizing(): Sizing {
   if (!_sizing) _sizing = loadJSON<Sizing>("sizing.json", {})
   return _sizing
+}
+
+export type CustomPalette = {
+  title?: string
+  items?: Item[]
+  // Titles to pull from the main commands palette (built-ins + commands.json).
+  from?: string[]
+  // Pull every item with this category from the main commands palette.
+  fromCategory?: string
+  grouped?: boolean
+  emptyText?: string
+}
+export function userPalette(name: string): CustomPalette | null {
+  return loadJSON<CustomPalette | null>(`palettes/${name}.json`, null)
 }

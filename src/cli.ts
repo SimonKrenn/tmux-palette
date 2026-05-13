@@ -3,7 +3,7 @@ import { commands } from "./palettes/commands"
 import { findPane } from "./palettes/find-pane"
 import { movePane } from "./palettes/move-pane"
 import type { Item, PaletteDef } from "./types"
-import { userCommands, userSizing } from "./userConfig"
+import { userCommands, userHidden, userPalette, userSizing } from "./userConfig"
 
 const DEFAULT_WIDTH = 90
 const DEFAULT_MAX_HEIGHT = 28
@@ -22,17 +22,45 @@ const palettes: Record<string, PaletteDef> = {
 const name = process.argv[2] || "commands"
 let def = palettes[name]
 
+// Custom palettes live in ~/.config/tmux-palette/palettes/<name>.json.
+// Looked up here so users can override built-in names too (advanced).
 if (!def) {
-  console.error(`Unknown palette: ${name}. Available: ${Object.keys(palettes).join(", ")}`)
+  const custom = userPalette(name)
+  if (custom) {
+    const baseCommands: Item[] =
+      typeof commands.items === "function" ? await commands.items() : commands.items
+    const allMain: Item[] = [...baseCommands, ...userCommands()]
+    const referenced: Item[] = (custom.from ?? [])
+      .map((title) => allMain.find((i) => i.title === title))
+      .filter((i): i is Item => Boolean(i))
+    const byCategory: Item[] = custom.fromCategory
+      ? allMain.filter((i) => i.category === custom.fromCategory)
+      : []
+    const items = [...referenced, ...byCategory, ...(custom.items ?? [])]
+    def = {
+      title: custom.title ?? name,
+      grouped: custom.grouped ?? false,
+      emptyText: custom.emptyText,
+      items,
+    }
+  }
+}
+
+if (!def) {
+  const builtIn = Object.keys(palettes).join(", ")
+  console.error(`Unknown palette: ${name}. Built-in: ${builtIn}. Custom palettes go in ~/.config/tmux-palette/palettes/<name>.json`)
   process.exit(1)
 }
 
-// Append user-defined items to the commands palette (~/.config/tmux-palette/commands.json).
+// Append user-defined items to the commands palette and drop any items
+// listed in hidden.json (~/.config/tmux-palette/{commands,hidden}.json).
 if (name === "commands") {
   const extras = userCommands()
-  if (extras.length) {
-    const baseItems: Item[] = typeof def.items === "function" ? await def.items() : def.items
-    def = { ...def, items: [...baseItems, ...extras] }
+  const hidden = userHidden()
+  const baseItems: Item[] = typeof def.items === "function" ? await def.items() : def.items
+  const merged = [...baseItems, ...extras].filter((i) => !hidden.has(i.title))
+  if (merged.length !== baseItems.length || extras.length) {
+    def = { ...def, items: merged }
   }
 }
 
@@ -52,7 +80,10 @@ if (categoryFilter) {
 // fullscreen mobile mode based on actual client dimensions.
 if (process.argv.includes("--measure")) {
   const items: Item[] = typeof def.items === "function" ? await def.items() : def.items
-  const cats = new Set(items.map((i) => i.category).filter((c): c is string => Boolean(c))).size
+  const grouped = def.grouped !== false
+  const cats = grouped
+    ? new Set(items.map((i) => i.category).filter((c): c is string => Boolean(c))).size
+    : 0
   // chrome: top pad (1) + header (1) + search (1) + spacer (1) + footer spacer (1) + footer (1) + bottom pad (1) = 7
   const sizing = userSizing()
   const maxHeight = sizing.maxHeight ?? DEFAULT_MAX_HEIGHT

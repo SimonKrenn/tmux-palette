@@ -147,6 +147,51 @@ bind -n M-a run-shell "~/Sites/tmux-palette/bin/tmux-palette.sh commands --categ
 The popup title auto-updates to the category name and the category
 header gets hidden (since everything is the same category anyway).
 
+### `hidden.json` — hide built-in items
+
+Drop a JSON array of item titles to skip them in the main commands
+palette:
+
+```json
+["Toggle Status Bar", "Reload Config", "Toggle OpenTUI Top Bar"]
+```
+
+Items still appear if you reference them by title in a custom palette
+(see below) — `hidden.json` is just about decluttering the default
+palette.
+
+### Custom palettes
+
+Drop a JSON file in `~/.config/tmux-palette/palettes/<name>.json` to
+define a brand-new palette. Bind any key to its name:
+
+```tmux
+bind -n M-q run-shell "~/Sites/tmux-palette/bin/tmux-palette.sh my-favs"
+```
+
+```json
+// ~/.config/tmux-palette/palettes/my-favs.json
+{
+  "title": "Favorites",
+  "from": ["Toggle Diff Viewer", "Find Pane", "Choose Session"],
+  "fromCategory": "Tools",
+  "items": [
+    {
+      "icon": "",
+      "title": "Custom item only in this palette",
+      "action": { "tmux": "run-shell '~/scripts/x.sh'" }
+    }
+  ]
+}
+```
+
+- `from` — array of item titles to pull from the main commands palette (built-ins + your `commands.json`)
+- `fromCategory` — pull every item from one category
+- `items` — brand-new items defined inline
+- `title` / `grouped` / `emptyText` — same as built-in palettes
+
+All keys optional. Resolution order: `from` → `fromCategory` → `items`.
+
 ## Customize
 
 Drop-in user config lives in `~/.config/tmux-palette/`. Edit JSON files here

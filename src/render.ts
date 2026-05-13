@@ -70,6 +70,7 @@ function shortcutFragment(item: Item, colors: Colors, active: boolean, rowBg: st
 export function renderDefaultItem(item: Item, colors: Colors, active: boolean, bodyWidth: number): string {
   const rowBg = active ? colors.selected : colors.panel
   const marker = active ? `${colors.accent}▌${colors.reset}${rowBg}` : " "
+  const iconGlyph = item.icon || " "
   const icon = item.icon ? `${colors.accent}${item.icon}${colors.reset}${rowBg}` : " "
   const titleStyle = active ? colors.bold + colors.fg : colors.muted
   const titleStyled = `${titleStyle}${item.title}${colors.reset}${rowBg}`
@@ -80,7 +81,7 @@ export function renderDefaultItem(item: Item, colors: Colors, active: boolean, b
 
   const leftStyled = `${marker} ${icon}  ${titleStyled}${chip.styled}${desc.styled}`
   const leftPlainW =
-    1 + 1 + charWidth(item.icon ?? " ") + 2 + displayWidth(item.title) + chip.width + desc.width
+    1 + 1 + charWidth(iconGlyph) + 2 + displayWidth(item.title) + chip.width + desc.width
 
   const gap = Math.max(1, bodyWidth - leftPlainW - sc.text.length)
   return leftStyled + " ".repeat(gap) + sc.styled
