@@ -42,6 +42,12 @@ See [`examples/`](examples) for drop-in palettes you can copy into
 
 ## Install
 
+### Requirements
+
+- [Bun](https://bun.sh)
+- tmux 3.4+ recommended (`display-popup -E` support)
+- Optional tools for examples only: `gh`, `jq`, `docker`, `npm`, `git`, etc.
+
 <details>
 <summary><b>Manual install</b></summary>
 
@@ -168,6 +174,24 @@ Constraints
 
 **Auto-aliases**: initials of multi-word titles match automatically. Type `nw` for "New
 Window", `cs` for "Choose Session", `sh` for "Split Horizontal", etc.
+
+## Trust And Safety
+
+- CI runs `bun test`, TypeScript, Fallow dead-code, and Fallow duplication checks.
+- The codebase is intentionally small and has no runtime package dependencies.
+- Custom palettes are local JSON files, but they can run shell commands. Only copy
+  palette examples you understand, especially if they come from outside this repo.
+- User config lives under `~/.config/tmux-palette/`; normal customization should not
+  require editing source files.
+
+## Known Limitations
+
+- Requires tmux popup support; tmux 3.4+ is recommended.
+- Plugin commands run each time their palette opens. Add your own cache layer for
+  slow commands.
+- This is currently installed from the repo or via TPM, not a packaged npm release.
+- `{ "shell": "..." }` and `{ "popup": "..." }` actions execute through the user's
+  shell by design.
 
 ## Customize
 
