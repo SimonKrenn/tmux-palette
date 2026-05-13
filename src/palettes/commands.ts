@@ -66,5 +66,8 @@ export const commands = definePalette({
 
     { icon: "󰑓", category: "System", title: "Reload Config",
       action: { tmux: "source-file ~/.tmux.conf ; display-message 'Config reloaded'" } },
+
+    { icon: "", category: "Appearance", title: "Switch Theme...", description: "browse + live-preview bundled themes",
+      action: { palette: "themes" } },
   ],
 })

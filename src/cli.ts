@@ -3,14 +3,15 @@ import { runPalette } from "./palette"
 import { commands } from "./palettes/commands"
 import { findPane } from "./palettes/find-pane"
 import { movePane } from "./palettes/move-pane"
-import { resolveTheme } from "./theme"
+import { themes } from "./palettes/themes"
+import { resolveActiveTheme } from "./theme"
 import type { Item, PaletteDef } from "./types"
-import { userCommands, userHidden, userPalette, userSizing, userTheme } from "./userConfig"
+import { userCommands, userHidden, userPalette, userSizing } from "./userConfig"
 
 function substituteTemplate(action: Item["action"], value: string): Item["action"] {
   if ("shell" in action) return { shell: action.shell.replace(/\{\}/g, value) }
   if ("tmux" in action) return { tmux: action.tmux.replace(/\{\}/g, value) }
-  if ("popup" in action) return { popup: action.popup.replace(/\{\}/g, value) }
+  if ("popup" in action) return { ...action, popup: action.popup.replace(/\{\}/g, value) }
   return action
 }
 
@@ -100,6 +101,7 @@ const palettes: Record<string, PaletteDef> = {
   commands,
   "find-pane": findPane,
   "move-pane": movePane,
+  themes,
 }
 
 async function buildCustomPalette(name: string): Promise<PaletteDef | null> {
@@ -192,8 +194,7 @@ if (process.argv.includes("--measure")) {
   // Border bg=default uses the terminal background so rounded corners
   // blend into the surrounding terminal instead of leaking either the
   // panel color outward or the terminal black inward.
-  const baseTheme = resolveTheme(def.theme)
-  const theme = { ...baseTheme, ...(userTheme() ?? {}) }
+  const theme = resolveActiveTheme(def.theme)
   const bodyStyle = sizing.bodyStyle ?? `bg=${theme.panel}`
   const borderStyle = sizing.borderStyle ?? `fg=${theme.accent},bg=default`
 

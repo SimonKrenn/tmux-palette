@@ -52,8 +52,14 @@ export function renderCategory(category: string, colors: Colors, rowBg: string):
 function aliasChip(item: Item, colors: Colors, rowBg: string): { styled: string; width: number } {
   if (!item.aliases?.length) return { styled: "", width: 0 }
   const alias = item.aliases[0]!
+  // Pill text MUST set fg explicitly. The preceding title fragment ends
+  // with `colors.reset + rowBg` which clears fg back to terminal default
+  // — on unselected rows (rowBg = panel, no fg in it) the alias would
+  // render in whatever the terminal's default fg is, often invisible
+  // against the theme's bg color. colors.fg + colors.bg gives the
+  // theme's primary text/background pair, guaranteed-readable.
   return {
-    styled: `  ${colors.bg} ${alias} ${colors.reset}${rowBg}`,
+    styled: `  ${colors.bg}${colors.fg} ${alias} ${colors.reset}${rowBg}`,
     width: 2 + 1 + alias.length + 1,
   }
 }

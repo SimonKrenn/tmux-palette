@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs"
-import type { Item, Theme } from "./types"
+import type { Item } from "./types"
 
 const CONFIG_DIR =
   `${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/tmux-palette`
@@ -24,12 +24,6 @@ let _aliases: Record<string, string[]> | null = null
 export function userAliases(): Record<string, string[]> {
   if (!_aliases) _aliases = loadJSON<Record<string, string[]>>("aliases.json", {})
   return _aliases
-}
-
-let _theme: Partial<Theme> | null | undefined = undefined
-export function userTheme(): Partial<Theme> | null {
-  if (_theme === undefined) _theme = loadJSON<Partial<Theme> | null>("theme.json", null)
-  return _theme
 }
 
 let _commands: Item[] | null = null
@@ -72,6 +66,12 @@ export type Sizing = {
   // ("80") or a percentage ("80%"). Defaults: 80% × 80%.
   popupWidth?: string
   popupHeight?: string
+  // Horizontal/vertical padding (in cells) around { popup } action popups.
+  // Effectively shrinks the popup by 2 * padX cells wide / 2 * padY cells
+  // tall, giving breathing room from the terminal edges. Defaults: 0 / 0.
+  // Per-item override via the action's `padX` / `padY` fields.
+  popupPadX?: number
+  popupPadY?: number
   // ESC key behavior in nested palettes. "back" pops one level at a time
   // (Raycast-style), closing the popup only at the top. "exit" always
   // closes immediately. Default: "back".

@@ -15,9 +15,9 @@ import {
   type Row,
   type RowAction,
 } from "./render"
-import { makeColors, resolveTheme } from "./theme"
-import type { Item, PaletteDef } from "./types"
-import { userAliases, userShortcuts, userSizing, userTheme } from "./userConfig"
+import { makeColors, resolveActiveTheme } from "./theme"
+import type { Item, PaletteDef, PopupAction } from "./types"
+import { userAliases, userShortcuts, userSizing } from "./userConfig"
 
 export type PaletteLoader = (name: string) => Promise<PaletteDef | null>
 
@@ -87,7 +87,7 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
   // These all swap when navigating between palettes, so they're `let`.
   let currentDef = def
   let currentName = initialName ?? "commands"
-  let theme = { ...resolveTheme(def.theme), ...(userTheme() ?? {}) }
+  let theme = resolveActiveTheme(def.theme)
   let colors = makeColors(theme)
   let rawItems: Item[] = typeof def.items === "function" ? await def.items() : def.items
   let items: Item[] = applyUserOverrides(rawItems)
@@ -116,7 +116,7 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
 
   async function loadDef(d: PaletteDef): Promise<void> {
     currentDef = d
-    theme = { ...resolveTheme(d.theme), ...(userTheme() ?? {}) }
+    theme = resolveActiveTheme(d.theme)
     colors = makeColors(theme)
     rawItems = typeof d.items === "function" ? await d.items() : d.items
     items = applyUserOverrides(rawItems)
@@ -181,6 +181,14 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
     const vis = visible()
     ensureSelectable(vis)
 
+    if (currentDef.onSelect) {
+      const preview = currentDef.onSelect(vis[selected])
+      if (preview) {
+        theme = preview
+        colors = makeColors(theme)
+      }
+    }
+
     const rows = buildRows(vis, grouped, filter.length > 0)
     // When the tmux border is on it visually replaces our top/bottom pad
     // rows, so we skip them (chrome = 5 instead of 7) and shift mouse-y
@@ -229,34 +237,52 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
   }
 
   // Builds the tmux display-popup flags for a { popup } action: -B + body
-  // style if no border, -b/-s/-S triplet otherwise.
-  function buildPopupFlags(): string {
+  // style if no border, -b/-s/-S triplet otherwise. Per-action `border`
+  // override wins over sizing.popupBorder.
+  function buildPopupFlags(borderOverride?: string): string {
     const sizing = userSizing()
-    const popupBorder = sizing.popupBorder ?? "none"
+    const popupBorder = borderOverride ?? sizing.popupBorder ?? "none"
     const bodyStyle = sizing.popupBodyStyle ?? `bg=${theme.panel}`
     if (popupBorder === "none") return `-B -s '${bodyStyle}'`
     const borderStyle = sizing.popupBorderStyle ?? `fg=${theme.accent},bg=default`
     return `-b ${popupBorder} -s '${bodyStyle}' -S '${borderStyle}'`
   }
 
+  // Builds a shell expression that resolves a "80%" / "80" size spec into
+  // an absolute cell count and subtracts 2*pad. Resolved at shell execution
+  // time so tmux display-message returns the actual client dimensions
+  // (querying from inside the palette popup gives popup-local dims instead).
+  function popupDimExpr(spec: string, axis: "client_width" | "client_height", pad: number): string {
+    if (spec.endsWith("%")) {
+      const pct = Number(spec.slice(0, -1))
+      return `$(( $(tmux display-message -p '#{${axis}}') * ${pct} / 100 - ${2 * pad} ))`
+    }
+    return String(Math.max(1, Number(spec) - 2 * pad))
+  }
+
   // tmux only allows one popup per client so we can't nest or resize mid-run.
   // For { popup } actions we exit the palette, run a sized popup with the
   // command, then re-launch the palette at relaunchName once it closes.
-  function buildPopupRelaunchCommand(cmd: string, relaunchName: string): string {
+  // Per-action overrides (width/height/padX/padY/border) win over sizing.json.
+  function buildPopupRelaunchCommand(action: PopupAction, relaunchName: string): string {
     const sizing = userSizing()
-    const popupW = sizing.popupWidth ?? "80%"
-    const popupH = sizing.popupHeight ?? "80%"
+    const padX = action.padX ?? sizing.popupPadX ?? 0
+    const padY = action.padY ?? sizing.popupPadY ?? 0
+    const width = action.width ?? sizing.popupWidth ?? "80%"
+    const height = action.height ?? sizing.popupHeight ?? "80%"
+    const wExpr = popupDimExpr(width, "client_width", padX)
+    const hExpr = popupDimExpr(height, "client_height", padY)
     const bin = process.env.TMUX_PALETTE_BIN ?? "tmux-palette"
     // The trailing relaunch uses `run-shell -b` so tmux returns immediately;
     // the wrapper script itself opens a new display-popup for the palette.
-    return `tmux display-popup -E ${buildPopupFlags()} -h ${popupH} -w ${popupW} ${cmd}; tmux run-shell -b '${bin} ${relaunchName}'`
+    return `tmux display-popup -E ${buildPopupFlags(action.border)} -h ${hExpr} -w ${wExpr} ${action.popup}; tmux run-shell -b '${bin} ${relaunchName}'`
   }
 
-  function dispatchPopupAction(cmd: string): never {
+  function dispatchPopupAction(action: PopupAction): never {
     cleanup()
     if (cmdFile) {
       try {
-        writeFileSync(cmdFile, `shell:${buildPopupRelaunchCommand(cmd, currentName)}`)
+        writeFileSync(cmdFile, `shell:${buildPopupRelaunchCommand(action, currentName)}`)
       } catch {}
     }
     process.exit(0)
@@ -272,12 +298,22 @@ export async function runPalette(def: PaletteDef, loader?: PaletteLoader, initia
     process.exit(0)
   }
 
+  // In-process action that runs inline and then navigates back to the
+  // previous palette (or closes if at root). Used by the theme switcher
+  // to "apply + return". Doesn't tear down stdin/stdout — we stay live.
+  async function dispatchApplyAction(fn: (ctx: ActionContext) => void | Promise<void>): Promise<void> {
+    await fn({ cmdFile })
+    if (stack.length > 0) await navigateBack()
+    else exitNow()
+  }
+
   async function activate(item: Item): Promise<void> {
     if ("palette" in item.action && loader) {
       await navigateTo(item.action.palette)
       return
     }
-    if ("popup" in item.action) dispatchPopupAction(item.action.popup)
+    if ("apply" in item.action) return dispatchApplyAction(item.action.apply)
+    if ("popup" in item.action) dispatchPopupAction(item.action)
     await dispatchDirectAction(item)
   }
 

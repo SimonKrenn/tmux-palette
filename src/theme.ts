@@ -1,56 +1,122 @@
+import { readdirSync, readFileSync } from "node:fs"
+import { bundledThemeMap, bundledThemes, type BundledTheme } from "./themes-bundled"
 import type { Colors, Theme } from "./types"
 
-const shadesOfPurple: Theme = {
-  bg: "#1e1d40",
-  panel: "#2d2b55",
-  selected: "#504d7a",
-  fg: "#ffffff",
-  muted: "#a599e9",
-  accent: "#fad000",
+const CONFIG_DIR =
+  `${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/tmux-palette`
+
+const DEFAULT_SLUG = "shades-of-purple"
+
+function isFullTheme(obj: unknown): obj is Theme {
+  if (!obj || typeof obj !== "object") return false
+  const keys = ["bg", "panel", "selected", "fg", "muted", "accent"] as const
+  return keys.every((k) => typeof (obj as Record<string, unknown>)[k] === "string")
 }
 
-const dracula: Theme = {
-  bg: "#282a36",
-  panel: "#21222c",
-  selected: "#44475a",
-  fg: "#f8f8f2",
-  muted: "#6272a4",
-  accent: "#bd93f9",
+let _userThemes: Record<string, Theme> | null = null
+export function userThemes(): Record<string, Theme> {
+  if (_userThemes) return _userThemes
+  const out: Record<string, Theme> = {}
+  try {
+    for (const file of readdirSync(`${CONFIG_DIR}/themes`)) {
+      if (!file.endsWith(".json")) continue
+      const slug = file.slice(0, -5)
+      try {
+        const parsed = JSON.parse(readFileSync(`${CONFIG_DIR}/themes/${file}`, "utf8"))
+        if (isFullTheme(parsed)) out[slug] = parsed
+      } catch {}
+    }
+  } catch {}
+  _userThemes = out
+  return out
 }
 
-const tokyoNight: Theme = {
-  bg: "#1a1b26",
-  panel: "#16161e",
-  selected: "#283457",
-  fg: "#c0caf5",
-  muted: "#565f89",
-  accent: "#7aa2f7",
+export type ThemeListEntry = { slug: string; name: string; theme: Theme; source: "user" | "bundled" }
+
+/**
+ * All themes available to the switcher: bundled + ~/.config/tmux-palette/themes/*.json.
+ * User-defined themes override bundled ones if slugs collide.
+ */
+export function listThemes(): ThemeListEntry[] {
+  const user = userThemes()
+  const bundled: ThemeListEntry[] = bundledThemes.map((t: BundledTheme) => ({
+    slug: t.slug,
+    name: t.name,
+    theme: t.theme,
+    source: "bundled" as const,
+  }))
+  const userEntries: ThemeListEntry[] = Object.entries(user).map(([slug, theme]) => ({
+    slug,
+    name: slug,
+    theme,
+    source: "user" as const,
+  }))
+  // Filter out bundled entries that have a user override (replace, don't dupe).
+  const userSlugs = new Set(userEntries.map((e) => e.slug))
+  const filteredBundled = bundled.filter((b) => !userSlugs.has(b.slug))
+  return [...userEntries, ...filteredBundled].sort((a, b) => a.name.localeCompare(b.name))
 }
 
-const minimal: Theme = {
-  bg: "#000000",
-  panel: "#0a0a0a",
-  selected: "#1f1f1f",
-  fg: "#ffffff",
-  muted: "#808080",
-  accent: "#ffffff",
-}
-
-const themes: Record<string, Theme> = {
-  "shades-of-purple": shadesOfPurple,
-  dracula,
-  "tokyo-night": tokyoNight,
-  minimal,
-}
-
+/**
+ * Resolve a Theme value from the palette def. Accepts:
+ *   - undefined  → default theme
+ *   - string     → bundled or user theme slug
+ *   - Theme      → full theme literal
+ *
+ * Throws on unknown slug so typos surface during palette load.
+ */
 export function resolveTheme(theme: Theme | string | undefined): Theme {
-  if (!theme) return shadesOfPurple
+  if (!theme) return bundledThemeMap[DEFAULT_SLUG]!
   if (typeof theme === "string") {
-    const found = themes[theme]
-    if (!found) throw new Error(`Unknown theme: ${theme}. Known: ${Object.keys(themes).join(", ")}`)
-    return found
+    const user = userThemes()[theme]
+    if (user) return user
+    const bundled = bundledThemeMap[theme]
+    if (bundled) return bundled
+    throw new Error(`Unknown theme: ${theme}`)
   }
   return theme
+}
+
+/**
+ * Read ~/.config/tmux-palette/theme.json. Returns either:
+ *   - { name: "slug" }                 → look up by slug
+ *   - { bg, panel, selected, ... }     → full Theme override
+ *   - { bg?, accent?, ... }            → partial override (merged onto resolved theme)
+ *   - null if no file / parse failure
+ */
+type UserThemeFile =
+  | { name: string }
+  | Partial<Theme>
+
+let _userThemeFile: UserThemeFile | null | undefined = undefined
+export function userThemeFile(): UserThemeFile | null {
+  if (_userThemeFile !== undefined) return _userThemeFile
+  try {
+    const raw = readFileSync(`${CONFIG_DIR}/theme.json`, "utf8")
+    _userThemeFile = JSON.parse(raw) as UserThemeFile
+  } catch {
+    _userThemeFile = null
+  }
+  return _userThemeFile
+}
+
+/** Drop the cached theme.json contents so the next resolve re-reads disk.
+ *  Call this immediately after writing theme.json so an in-process
+ *  navigate-back picks up the new active theme. */
+export function invalidateThemeCache(): void {
+  _userThemeFile = undefined
+}
+
+/**
+ * Combine the palette's declared theme with the user's ~/.config/tmux-palette/theme.json.
+ * Encapsulates the "name vs. override" logic so cli.ts / palette.ts don't have to.
+ */
+export function resolveActiveTheme(declared: Theme | string | undefined): Theme {
+  const file = userThemeFile()
+  if (file && "name" in file && typeof (file as { name: unknown }).name === "string") {
+    return resolveTheme((file as { name: string }).name)
+  }
+  return { ...resolveTheme(declared), ...(file ?? {}) }
 }
 
 function rgb(hex: string): [number, number, number] {

@@ -1,14 +1,14 @@
 import { writeFileSync } from "node:fs"
-import { resolveTheme } from "./theme"
+import { resolveActiveTheme } from "./theme"
 import type { Action } from "./types"
-import { userSizing, userTheme } from "./userConfig"
+import { userSizing } from "./userConfig"
 
 // Builds the display-popup flags from sizing config: -B + body style if no
 // border, -b/-s/-S triplet otherwise. Theme is resolved here so popup
 // colors match the palette without the caller needing to know about it.
 function popupFlags(): string {
   const sizing = userSizing()
-  const theme = { ...resolveTheme(undefined), ...(userTheme() ?? {}) }
+  const theme = resolveActiveTheme(undefined)
   const popupBorder = sizing.popupBorder ?? "none"
   const bodyStyle = sizing.popupBodyStyle ?? `bg=${theme.panel}`
   if (popupBorder === "none") return `-B -s '${bodyStyle}'`

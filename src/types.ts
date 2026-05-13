@@ -1,9 +1,31 @@
+export type PopupAction = {
+  popup: string
+  /** Override sizing.popupWidth ("80" cells or "80%"). */
+  width?: string
+  /** Override sizing.popupHeight. */
+  height?: string
+  /** Override sizing.popupPadX (cells removed from each side). */
+  padX?: number
+  /** Override sizing.popupPadY. */
+  padY?: number
+  /** Override sizing.popupBorder ("none" | "single" | "rounded" | …). */
+  border?: string
+}
+
 export type Action =
   | { tmux: string }
   | { shell: string }
   | { palette: string }
-  | { popup: string }
+  | PopupAction
   | { run: (ctx: ActionContext) => void | Promise<void> }
+  /**
+   * Like `run`, but runs in-process WITHOUT closing the popup. After the
+   * callback completes, the runner navigates back to the previous palette
+   * (or closes if at the root). Use for actions that mutate config and
+   * should "apply + return" rather than "apply + exit". The theme switcher
+   * uses this so picking a theme returns you to the commands palette.
+   */
+  | { apply: (ctx: ActionContext) => void | Promise<void> }
 
 export interface ActionContext {
   readonly cmdFile: string | undefined
@@ -79,4 +101,10 @@ export type PaletteDef = {
    * match across title/description/category/shortcut/aliases (+ auto-aliases).
    */
   filter?: (items: Item[], query: string) => Item[]
+  /**
+   * Called when the highlighted item changes (arrow keys, mouse, filter
+   * reset). Return a Theme to live-preview it — the renderer swaps colors
+   * before the next frame paints. Used by the theme switcher.
+   */
+  onSelect?: (item: Item | undefined) => Theme | undefined
 }

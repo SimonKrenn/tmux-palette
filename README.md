@@ -19,7 +19,7 @@ https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 - **Custom palettes** — define your own with [a single JSON file](#custom-palettes-rcfgtmux-palettepalettesnamejson), bind to any key
 - **Hide built-ins** — declutter the default palette via [`hidden.json`](#hiddenjson--hide-built-in-items)
 - **Mobile-aware** — [auto-fullscreens](#sizingjson--popup-dimensions) on narrow terminals (Moshi / Blink on iOS)
-- **Themeable** — built-ins (`shades-of-purple`, `dracula`, `tokyo-night`, `minimal`) or [your own colors](#themejson--color-overrides)
+- **70+ themes built in** — Dracula, Tokyo Night, Catppuccin, Gruvbox, Rosé Pine, Nord, Solarized, Kanagawa, GitHub, Ayu, all the usuals from [terminalcolors.com](https://terminalcolors.com/) — [pick one in the palette with live preview](#themes), or [drop your own](#custom-themes)
 - **One-key TUI launcher** — drop `{ "popup": "htop" }` into any palette item and tmux opens it in a centered popup. Same trick for `btop`, `lazygit`, log tails, `fzf` tools, anything terminal-shaped.
 - **Plug in any program** — point a palette at any shell command that prints JSON or one-item-per-line (Bash, Python, Go, whatever). Live GitHub PRs, Docker containers, npm scripts, kubectl — fzf-style pluggability. Drop-in examples in [`examples/`](examples).
 - **AI-agent install** — paste a prompt into Claude Code / Codex / opencode and it's done
@@ -298,7 +298,31 @@ passed straight to `tmux display-popup -b`. `rounded` works too but
 its corner glyphs leave small visual gaps against the surrounding
 terminal, so it's not recommended.
 
-### `theme.json` — color overrides
+### Themes
+
+Open the main palette and pick **Switch Theme...** (under *Appearance*).
+Arrow-key through the list — every theme lives-previews instantly so you
+see the colors apply before you commit. Enter saves it and returns you to
+the previous palette with the new theme on; Esc cancels.
+
+Bundled themes (~70) cover the curated set from
+[terminalcolors.com](https://terminalcolors.com/) — Dracula, Tokyo Night,
+Catppuccin Frappé/Latte/Macchiato/Mocha, Gruvbox, Rosé Pine, Nord,
+Solarized, Kanagawa, GitHub Dark/Light, Ayu, Everforest, Night Owl, One
+Dark/Light, Shades of Purple, Tomorrow Night, Zenbones, and many more.
+Their bg/fg track Ghostty's official theme bundle; panel/selected/muted/
+accent are tuned for readable contrast. To tweak one, edit
+`src/themes-bundled.ts` directly.
+
+### `theme.json` — set the active theme
+
+Two forms. Pick a bundled (or custom) theme by name:
+
+```json
+{ "name": "tokyo-night" }
+```
+
+Or full color override (applied on top of the resolved theme):
 
 ```json
 {
@@ -311,8 +335,29 @@ terminal, so it's not recommended.
 }
 ```
 
-Applies to all palettes. Built-in themes (`shades-of-purple` default,
-`dracula`, `tokyo-night`, `minimal`) live in `src/theme.ts`.
+The theme switcher writes the `{ "name": "..." }` form for you. You can
+also mix: pick a name, then add individual keys to nudge specific colors.
+
+### Custom themes
+
+Drop one JSON file per theme into `~/.config/tmux-palette/themes/`:
+
+```json
+// ~/.config/tmux-palette/themes/my-theme.json
+{
+  "bg": "#0d0f12",
+  "panel": "#171a1f",
+  "selected": "#2c3038",
+  "fg": "#e6e8eb",
+  "muted": "#7d8590",
+  "accent": "#ff6b6b"
+}
+```
+
+Custom themes show up in the **Switch Theme...** picker alongside the
+bundled ones (tagged `custom`). The filename becomes the slug — drop
+`my-theme.json` → reference it as `{ "name": "my-theme" }` in
+`theme.json`, or just pick it from the switcher.
 
 ### Category hotkeys
 
@@ -380,7 +425,10 @@ generators, custom filter logic — edit the TS source. Items in
 { shell: "echo hi" }            // runs a shell command after the popup closes
 { popup: "htop" }               // opens cmd in a centered 80% tmux popup
 { palette: "find-pane" }        // chains into another palette
-{ run: (ctx) => { ... } }       // custom JS, runs in-process
+{ run: (ctx) => { ... } }       // custom JS, runs in-process, then exits
+{ apply: (ctx) => { ... } }     // custom JS, runs in-process, then pops
+                                // back to the previous palette (used by
+                                // the theme switcher to "apply + return")
 ```
 
 `{ tmux }` is special: it dispatches *after* the popup closes, so interactive
