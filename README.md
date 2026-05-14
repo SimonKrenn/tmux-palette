@@ -15,6 +15,17 @@ https://github.com/user-attachments/assets/3a8f3951-619f-46b4-a180-b9a03ccb8593
 
 https://github.com/user-attachments/assets/5edce838-9199-4123-8262-352bc47e989c
 
+## Status
+
+The tool is in beta. It's stable enough to use day-to-day, but the surface area
+is still settling — I want the next few weeks to be about running it myself,
+gathering feedback, and shaking out bugs rather than growing the feature set.
+
+If you'd like to contribute, the most useful work right now is anything that
+improves the existing base (refactors, perf, polish, docs) or fixes a bug. New
+features will likely get closed — no hard feelings, but please open an issue
+first to discuss before writing code.
+
 ## Highlights
 
 - **Fast startup** — designed for frequent use from a tmux key binding
