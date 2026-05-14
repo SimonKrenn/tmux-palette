@@ -58,10 +58,31 @@ function buildItemHaystack(item: Item): string {
     .join(" ")
 }
 
+// Boost applied when the query exactly matches one of an item's aliases
+// (auto-derived initials or user-defined). Has to outrank any fuzzyScore
+// the haystack can produce (exact match ≤ 15000) so e.g. "ns" lands on
+// "New Session" instead of "Detach" (which incidentally contains "ns"
+// inside its "Sessions" category).
+const ALIAS_EXACT_BOOST = 100000
+
+function aliasExactBoost(item: Item, parts: string[]): number {
+  if (parts.length !== 1) return 0
+  const q = parts[0]!.toLowerCase()
+  const auto = autoAlias(item.title)
+  if (auto && auto === q) return ALIAS_EXACT_BOOST
+  for (const a of item.aliases ?? []) {
+    if (a.toLowerCase() === q) return ALIAS_EXACT_BOOST
+  }
+  return 0
+}
+
 export function defaultFilter(items: Item[], needle: string): Item[] {
   const parts = needle.split(/\s+/).filter(Boolean)
   return items
-    .map((c) => ({ item: c, score: multiFuzzyScore(buildItemHaystack(c), parts) }))
+    .map((c) => ({
+      item: c,
+      score: multiFuzzyScore(buildItemHaystack(c), parts) + aliasExactBoost(c, parts),
+    }))
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .map((x) => x.item)
