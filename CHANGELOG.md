@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.1 - 2026-05-14
+
+- Fix: typing an auto-alias (e.g. `ns` for "New Session") now ranks the aliased item first instead of getting outranked by items that just happen to contain the query inside their category (e.g. "Detach" matching via "Sessio**ns**").
+
 ## v0.2.0 - 2026-05-14
 
 - Filter input now has a visible blinking caret, tinted with the active theme's accent (and retinted live as you scroll the theme picker).
