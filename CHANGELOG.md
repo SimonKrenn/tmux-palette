@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.0 - 2026-05-14
+
+- Filter input now has a visible blinking caret, tinted with the active theme's accent (and retinted live as you scroll the theme picker).
+- Cursor movement in the filter: Left/Right, Home/End (Ctrl+A/E), plus Alt+Left/Right and Ctrl+Left/Right for word jumps.
+- Editing shortcuts in the filter: Backspace, Delete, Alt+Backspace/Ctrl+W for word-delete, Ctrl+U to kill-to-start, Ctrl+K to kill-to-end.
+- Text selection with Shift + any of the cursor-movement keys (char, word, line ends). Typing replaces the selection; Backspace/Delete remove it; Esc clears it. Rendered with the theme's selected colors.
+- README: noted beta status and contribution scope while the basics stabilize.
+
 ## v0.1.1 - 2026-05-13
 
 - Fix: New Session command now switches you to the new session (was silently creating it in the background and leaving you on the current one).
