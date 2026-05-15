@@ -1,0 +1,274 @@
+use crate::model::{Action, CustomPalette, Item, PaletteDef, Sizing};
+use serde::de::DeserializeOwned;
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
+
+pub(crate) fn config_dir() -> PathBuf {
+    let base = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env::var_os("HOME").unwrap_or_default()).join(".config"));
+    base.join("tmux-palette")
+}
+
+pub(crate) fn load_json<T: DeserializeOwned>(name: &str, fallback: T) -> T {
+    let path = config_dir().join(name);
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(_) => return fallback,
+    };
+    serde_json::from_str(&raw).unwrap_or(fallback)
+}
+
+pub fn user_shortcuts() -> std::collections::HashMap<String, String> {
+    load_json("shortcuts.json", std::collections::HashMap::new())
+}
+
+pub fn user_aliases() -> std::collections::HashMap<String, Vec<String>> {
+    load_json("aliases.json", std::collections::HashMap::new())
+}
+
+pub fn user_commands() -> Vec<Item> {
+    load_json("commands.json", Vec::new())
+}
+
+pub fn user_hidden() -> std::collections::HashSet<String> {
+    load_json("hidden.json", std::collections::HashSet::new())
+}
+
+pub fn user_sizing() -> Sizing {
+    load_json("sizing.json", Sizing::default())
+}
+
+pub fn user_palette(name: &str) -> Option<CustomPalette> {
+    load_json(&format!("palettes/{name}.json"), None)
+}
+
+fn parse_plain_text(
+    output: &str,
+    default_action: Action,
+    default_icon: Option<String>,
+    default_icon_color: Option<String>,
+) -> Vec<Item> {
+    output
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            let parts: Vec<&str> = line.split('\t').collect();
+            let (icon, icon_color, title) = match parts.as_slice() {
+                [title] => (None, None, (*title).to_string()),
+                [icon, title] => (Some((*icon).to_string()), None, (*title).to_string()),
+                [icon, color, title, ..] => (
+                    Some((*icon).to_string()),
+                    Some((*color).to_string()),
+                    (*title).to_string(),
+                ),
+                _ => (None, None, line.to_string()),
+            };
+            let mut item = Item::new(title.clone(), substitute_action(&default_action, &title));
+            item.icon = icon;
+            item.icon_color = icon_color;
+            if item.icon.is_none() {
+                item.icon = default_icon.clone();
+            }
+            if item.icon_color.is_none() {
+                item.icon_color = default_icon_color.clone();
+            }
+            item
+        })
+        .collect()
+}
+
+fn substitute_action(action: &Action, value: &str) -> Action {
+    match action {
+        Action::Shell { shell } => Action::Shell {
+            shell: shell.replace("{}", value),
+        },
+        Action::Tmux { tmux } => Action::Tmux {
+            tmux: tmux.replace("{}", value),
+        },
+        Action::Palette { palette } => Action::Palette {
+            palette: palette.replace("{}", value),
+        },
+        Action::Popup(p) => {
+            let mut p = p.clone();
+            p.popup = p.popup.replace("{}", value);
+            Action::Popup(p)
+        }
+    }
+}
+
+fn error_item(title: impl Into<String>, description: impl Into<String>) -> Item {
+    let mut item = Item::new(title, Action::Shell { shell: ":".into() });
+    item.icon = Some(String::new());
+    item.description = Some(description.into());
+    item
+}
+
+pub fn plugin_items(
+    command: &str,
+    default_action: Option<Action>,
+    default_icon: Option<String>,
+    default_icon_color: Option<String>,
+) -> Vec<Item> {
+    let output = match Command::new("sh").arg("-c").arg(command).output() {
+        Ok(output) if output.status.success() => {
+            String::from_utf8_lossy(&output.stdout).into_owned()
+        }
+        Ok(output) => {
+            let err = String::from_utf8_lossy(&output.stderr)
+                .trim()
+                .lines()
+                .next()
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("exit {}", output.status.code().unwrap_or_default()));
+            return vec![error_item("Plugin command failed", err)];
+        }
+        Err(err) => return vec![error_item("Plugin command failed", err.to_string())],
+    };
+
+    if let Ok(items) = serde_json::from_str::<Vec<Item>>(&output) {
+        return items;
+    }
+    match default_action {
+        Some(action) => parse_plain_text(&output, action, default_icon, default_icon_color),
+        None => vec![error_item(
+            "Plain-text plugin output but no 'action' template set",
+            "Add an 'action' field to the palette JSON (use {} for the line text)",
+        )],
+    }
+}
+
+pub fn load_palette(name: &str) -> Option<PaletteDef> {
+    if name == "commands" {
+        let mut items = crate::palettes::commands().items;
+        items.extend(user_commands());
+        let hidden = user_hidden();
+        items.retain(|item| !hidden.contains(&item.title));
+        return Some(PaletteDef {
+            title: Some("Commands".into()),
+            items,
+            grouped: true,
+            empty_text: None,
+        });
+    }
+
+    let custom = user_palette(name)?;
+    let mut items = Vec::new();
+    let mut all_main = crate::palettes::commands().items;
+    all_main.extend(user_commands());
+    for title in custom.from {
+        if let Some(item) = all_main.iter().find(|item| item.title == title) {
+            items.push(item.clone());
+        }
+    }
+    if let Some(category) = custom.from_category.as_deref() {
+        items.extend(
+            all_main
+                .iter()
+                .filter(|item| item.category.as_deref() == Some(category))
+                .cloned(),
+        );
+    }
+    if let Some(command) = custom.command.as_deref() {
+        items.extend(plugin_items(
+            command,
+            custom.action.clone(),
+            custom.icon.clone(),
+            custom.icon_color.clone(),
+        ));
+    }
+    items.extend(custom.items);
+    Some(PaletteDef {
+        title: custom.title,
+        items,
+        grouped: custom.grouped.unwrap_or(false),
+        empty_text: custom.empty_text,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_config<F: FnOnce()>(f: F) {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        let old = env::var_os("XDG_CONFIG_HOME");
+        env::set_var("XDG_CONFIG_HOME", dir.path());
+        f();
+        match old {
+            Some(v) => env::set_var("XDG_CONFIG_HOME", v),
+            None => env::remove_var("XDG_CONFIG_HOME"),
+        }
+    }
+
+    #[test]
+    fn loads_commands_and_hidden() {
+        with_config(|| {
+            let cfg = config_dir();
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(
+                cfg.join("commands.json"),
+                r#"[{"title":"User","action":{"shell":"echo hi"}}]"#,
+            )
+            .unwrap();
+            fs::write(cfg.join("hidden.json"), r#"["Reload Config"]"#).unwrap();
+            assert_eq!(user_commands().len(), 1);
+            assert!(user_hidden().contains("Reload Config"));
+            assert!(!load_palette("commands")
+                .unwrap()
+                .items
+                .iter()
+                .any(|i| i.title == "Reload Config"));
+        });
+    }
+
+    #[test]
+    fn loads_custom_palette_sources() {
+        with_config(|| {
+            let cfg = config_dir().join("palettes");
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(cfg.join("demo.json"), r#"{"title":"Demo","from":["Find Pane"],"fromCategory":"Panes","items":[{"title":"Local","action":{"shell":"echo local"}}]}"#).unwrap();
+            let palette = load_palette("demo").unwrap();
+            assert!(palette.items.iter().any(|i| i.title == "Local"));
+            assert!(palette.items.iter().any(|i| i.title == "Find Pane"));
+            assert!(palette
+                .items
+                .iter()
+                .any(|i| i.category.as_deref() == Some("Panes")));
+        });
+    }
+
+    #[test]
+    fn parses_plain_text_plugin_output() {
+        let items = plugin_items(
+            "printf 'A\tB\tTitle\nPlain\n'",
+            Some(Action::Shell {
+                shell: "open {}".into(),
+            }),
+            None,
+            None,
+        );
+        assert_eq!(items[0].title, "Title");
+        assert_eq!(items[0].icon.as_deref(), Some("A"));
+        assert_eq!(items[0].icon_color.as_deref(), Some("B"));
+        assert_eq!(items[1].title, "Plain");
+    }
+
+    #[test]
+    fn plain_text_plugin_without_template_returns_visible_error() {
+        let items = plugin_items("printf 'Plain\n'", None, None, None);
+        assert_eq!(
+            items[0].title,
+            "Plain-text plugin output but no 'action' template set"
+        );
+        assert!(matches!(items[0].action, Action::Shell { ref shell } if shell == ":"));
+    }
+}

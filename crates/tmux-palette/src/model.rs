@@ -93,3 +93,38 @@ pub struct PaletteDef {
     pub grouped: bool,
     pub empty_text: Option<String>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Sizing {
+    pub width: Option<u16>,
+    pub max_height: Option<u16>,
+    pub pad_x: Option<u16>,
+    pub mobile_width: Option<u16>,
+    pub border: Option<String>,
+    pub body_style: Option<String>,
+    pub border_style: Option<String>,
+    pub popup_border: Option<String>,
+    pub popup_body_style: Option<String>,
+    pub popup_border_style: Option<String>,
+    pub popup_width: Option<String>,
+    pub popup_height: Option<String>,
+    pub popup_pad_x: Option<u16>,
+    pub popup_pad_y: Option<u16>,
+    pub esc: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CustomPalette {
+    pub title: Option<String>,
+    pub items: Vec<Item>,
+    pub from: Vec<String>,
+    pub from_category: Option<String>,
+    pub command: Option<String>,
+    pub action: Option<Action>,
+    pub icon: Option<String>,
+    pub icon_color: Option<String>,
+    pub grouped: Option<bool>,
+    pub empty_text: Option<String>,
+}

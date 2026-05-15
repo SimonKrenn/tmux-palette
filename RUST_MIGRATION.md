@@ -10,13 +10,17 @@ Port `tmux-palette` from Bun/TypeScript to Rust while preserving user-facing beh
 
 - Rust implementation lives under `crates/tmux-palette/`.
 - TypeScript/Bun remains the production implementation.
-- Current Rust milestone targets pure parity modules first:
+- Current Rust milestone includes pure parity modules and initial config/palette loading:
   - model/action types
   - text width/truncation/aliases
   - fuzzy filtering
   - render helper logic
   - command palette invariants
   - action encoding
+  - config JSON loading
+  - active theme resolution
+  - custom palette loading
+  - plugin command parsing without timeout
 
 ## Compatibility Requirements
 
@@ -31,6 +35,7 @@ Port `tmux-palette` from Bun/TypeScript to Rust while preserving user-facing beh
 1. Finish pure module parity and tests.
 2. Add config/theme loading with user overrides.
 3. Port custom palettes and plugin command execution.
+   - Rust helper currently uses `sh -c` without a timeout; add one if it can be done cleanly without extra deps.
 4. Port dynamic tmux palettes (`find-pane`, `move-pane`).
 5. Port TUI state machine and terminal IO.
 6. Add Rust launcher behind an opt-in flag.
