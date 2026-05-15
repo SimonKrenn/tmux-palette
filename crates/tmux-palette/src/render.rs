@@ -3,6 +3,17 @@ use crate::{
     text::{char_width, display_width, truncate},
 };
 
+fn hex_to_fg(hex: &str) -> Option<String> {
+    let h = hex.strip_prefix('#').unwrap_or(hex);
+    if h.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&h[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&h[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&h[4..6], 16).ok()?;
+    Some(format!("\x1b[38;2;{r};{g};{b}m"))
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Row {
     Category { category: String },
@@ -127,7 +138,12 @@ pub fn render_default_item(
     };
     let icon_glyph = item.icon.as_deref().unwrap_or(" ");
     let icon = if let Some(icon) = &item.icon {
-        format!("{}{}{}{}", colors.accent, icon, colors.reset, row_bg)
+        let icon_color = item
+            .icon_color
+            .as_deref()
+            .and_then(hex_to_fg)
+            .unwrap_or_else(|| colors.accent.clone());
+        format!("{}{}{}{}", icon_color, icon, colors.reset, row_bg)
     } else {
         " ".to_string()
     };
@@ -205,6 +221,92 @@ where
         lines.push(blank.clone());
     }
     (lines, row_actions)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HeaderResult {
+    pub line: String,
+    pub esc_x1: usize,
+    pub esc_x2: usize,
+}
+
+pub fn compose_header(
+    title: &str,
+    width: usize,
+    pad_x: usize,
+    body_width: usize,
+    colors: &Colors,
+) -> HeaderResult {
+    let header_r = "esc";
+    let header_r_width = display_width(header_r);
+    let header_gap = body_width.saturating_sub(display_width(title) + header_r_width);
+    let line = format!(
+        "{}{}{}{}{}{}{}{}{}{}{}{}{}",
+        colors.panel,
+        " ".repeat(pad_x),
+        colors.bold,
+        colors.fg,
+        title,
+        colors.reset,
+        colors.panel,
+        " ".repeat(header_gap),
+        colors.muted,
+        header_r,
+        colors.panel,
+        " ".repeat(pad_x),
+        colors.reset
+    );
+    HeaderResult {
+        line,
+        esc_x1: width.saturating_sub(pad_x + header_r_width).max(1),
+        esc_x2: width.saturating_sub(pad_x).saturating_add(1),
+    }
+}
+
+pub fn compose_search(filter: &str, pad_x: usize, body_width: usize, colors: &Colors) -> String {
+    let pad = " ".repeat(pad_x);
+    if filter.is_empty() {
+        return format!(
+            "{}{}{}▌{} {}{}{}{}",
+            colors.panel,
+            pad,
+            colors.accent,
+            colors.muted,
+            truncate("Search", body_width.saturating_sub(2)),
+            colors.panel,
+            pad,
+            colors.reset
+        );
+    }
+    format!(
+        "{}{}{}▌{} {}{}{}{}",
+        colors.panel,
+        pad,
+        colors.accent,
+        colors.fg,
+        truncate(filter, body_width.saturating_sub(2)),
+        colors.panel,
+        pad,
+        colors.reset
+    )
+}
+
+pub fn compose_footer(
+    footer_text: &str,
+    pad_x: usize,
+    body_width: usize,
+    colors: &Colors,
+) -> String {
+    format!(
+        "{}{}{}{}{}{}{}",
+        colors.panel,
+        " ".repeat(pad_x),
+        colors.muted,
+        truncate(footer_text, body_width),
+        colors.panel,
+        " ".repeat(pad_x),
+        colors.reset
+    )
 }
 
 #[cfg(test)]

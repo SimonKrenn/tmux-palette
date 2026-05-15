@@ -15,18 +15,22 @@ struct Args {
     category: Option<String>,
 }
 
+fn apply_category_filter(palette: &mut tmux_palette::model::PaletteDef, category: Option<&str>) {
+    if let Some(category) = category {
+        palette
+            .items
+            .retain(|item| item.category.as_deref() == Some(category));
+        palette.title = Some(category.to_string());
+        palette.grouped = false;
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     if args.measure {
         let mut palette = tmux_palette::config::load_palette(&args.palette)
             .ok_or_else(|| anyhow::anyhow!("Unknown palette: {}", args.palette))?;
-        if let Some(category) = args.category.as_deref() {
-            palette
-                .items
-                .retain(|item| item.category.as_deref() == Some(category));
-            palette.title = Some(category.to_string());
-            palette.grouped = false;
-        }
+        apply_category_filter(&mut palette, args.category.as_deref());
         let items = palette.items;
         let grouped = palette.grouped;
         let cats = if grouped {
@@ -65,5 +69,8 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    anyhow::bail!("Rust TUI is not implemented yet; use the TypeScript launcher for now")
+    let mut palette = tmux_palette::config::load_palette(&args.palette)
+        .ok_or_else(|| anyhow::anyhow!("Unknown palette: {}", args.palette))?;
+    apply_category_filter(&mut palette, args.category.as_deref());
+    tmux_palette::tui::run_palette(palette, args.palette)
 }
