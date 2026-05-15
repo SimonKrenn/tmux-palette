@@ -6,3 +6,4 @@ pub mod palettes;
 pub mod render;
 pub mod text;
 pub mod theme;
+pub mod tmux;
