@@ -1,0 +1,26 @@
+bin/tmux-palette.sh
+  s_a8cf24d298e191::t_9d8f9ed608dc9e 9-33,83,93
+  s_a8cf24d298e191::t_fb22c338b84d4e 47
+tmux-palette.tmux
+  s_a8cf24d298e191::t_9d8f9ed608dc9e 15-35,41,45,49
+README.md
+  s_a8cf24d298e191::t_3a893b36e865ef 114-118
+RUST_MIGRATION.md
+  s_a8cf24d298e191::t_9d8f9ed608dc9e 27,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "7eceb5e282d036beee31118bfb9edaf2f40df8e6",
+  "prompts": {},
+  "sessions": {
+    "s_a8cf24d298e191": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3eda41effe6abysOVGyB7x5r",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
