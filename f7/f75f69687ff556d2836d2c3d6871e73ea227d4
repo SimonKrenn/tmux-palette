@@ -1,0 +1,48 @@
+.gitignore
+  s_a8cf24d298e191::t_1fb04307762e68 36
+crates/tmux-palette/src/actions.rs
+  s_a8cf24d298e191::t_ac09cb19882bba 1-19,22-25,30-43,48-54,59-66,71-90
+  s_a8cf24d298e191::t_401d2590b7a640 20-21,26-29,44-47,55-58,67-70
+crates/tmux-palette/src/main.rs
+  s_a8cf24d298e191::t_2a011d48b4181a 1-43
+crates/tmux-palette/src/render.rs
+  s_a8cf24d298e191::t_5768dd75492951 5-50,54-57,62-66,71-77,82-90,95-103,109-111,123-132,138-143,154-177,182,188-197,204-264,269-294,308-309
+  s_a8cf24d298e191::t_401d2590b7a640 1-4,51-53,58-61,67-70,78-81,91-94,104-108,112-122,133-137,144-153,178-181,183-187,198-203,265-268,295-307
+crates/tmux-palette/src/theme.rs
+  s_a8cf24d298e191::t_ac09cb19882bba 1-47
+RUST_MIGRATION.md
+  s_a8cf24d298e191::t_754bc1cf9f762c 1-49
+crates/tmux-palette/src/model.rs
+  s_a8cf24d298e191::t_2a011d48b4181a 1-95
+crates/tmux-palette/src/lib.rs
+  s_a8cf24d298e191::t_2a011d48b4181a 1-7
+crates/tmux-palette/src/palettes/mod.rs
+  s_a8cf24d298e191::t_5768dd75492951 1-19,26-28,43,50,63-66,86-88,95,102,109,122,129,148,167-171,178-192,198-226
+  s_a8cf24d298e191::t_401d2590b7a640 20-25,29-42,44-49,51-62,67-85,89-94,96-101,103-108,110-121,123-128,130-147,149-166,172-177,193-197
+crates/tmux-palette/src/fuzzy.rs
+  s_a8cf24d298e191::t_ac09cb19882bba 1-12,14-139,144-154,159-188
+  s_a8cf24d298e191::t_401d2590b7a640 13,140-143,155-158
+crates/tmux-palette/Cargo.toml
+  s_a8cf24d298e191::t_2a011d48b4181a 1-15
+crates/tmux-palette/src/text.rs
+  s_a8cf24d298e191::t_2a011d48b4181a 1-32,36-133
+  s_a8cf24d298e191::t_401d2590b7a640 33-35
+Cargo.toml
+  s_a8cf24d298e191::t_2a011d48b4181a 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "f7f75f69687ff556d2836d2c3d6871e73ea227d4",
+  "prompts": {},
+  "sessions": {
+    "s_a8cf24d298e191": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3eda41effe6abysOVGyB7x5r",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
