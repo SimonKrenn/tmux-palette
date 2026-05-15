@@ -20,6 +20,7 @@ pub fn encode_action(action: &Action) -> Option<String> {
             popup_flags(),
             popup.popup
         )),
+        Action::ApplyTheme { .. } => None,
     }
 }
 

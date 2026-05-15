@@ -4,10 +4,20 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Action {
-    Tmux { tmux: String },
-    Shell { shell: String },
-    Palette { palette: String },
+    Tmux {
+        tmux: String,
+    },
+    Shell {
+        shell: String,
+    },
+    Palette {
+        palette: String,
+    },
     Popup(PopupAction),
+    #[serde(rename_all = "camelCase")]
+    ApplyTheme {
+        apply_theme: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

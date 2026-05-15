@@ -5,6 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[cfg(test)]
+pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 pub(crate) fn config_dir() -> PathBuf {
     let base = env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
@@ -96,6 +99,9 @@ fn substitute_action(action: &Action, value: &str) -> Action {
             p.popup = p.popup.replace("{}", value);
             Action::Popup(p)
         }
+        Action::ApplyTheme { apply_theme } => Action::ApplyTheme {
+            apply_theme: apply_theme.replace("{}", value),
+        },
     }
 }
 
@@ -154,6 +160,10 @@ pub fn load_palette(name: &str) -> Option<PaletteDef> {
         });
     }
 
+    if let Some(builtin) = crate::palettes::load_builtin(name) {
+        return Some(builtin);
+    }
+
     let custom = user_palette(name)?;
     let mut items = Vec::new();
     let mut all_main = crate::palettes::commands().items;
@@ -192,10 +202,7 @@ pub fn load_palette(name: &str) -> Option<PaletteDef> {
 mod tests {
     use super::*;
     use std::env;
-    use std::sync::Mutex;
     use tempfile::TempDir;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_config<F: FnOnce()>(f: F) {
         let _guard = ENV_LOCK.lock().unwrap();

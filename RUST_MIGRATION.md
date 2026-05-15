@@ -22,6 +22,7 @@ Port `tmux-palette` from Bun/TypeScript to Rust while preserving user-facing beh
   - custom palette loading
   - plugin command parsing without timeout
   - builtin tmux palette helpers (`commands`, `find-pane`, `move-pane`)
+  - theme switcher palette item generation and active-theme file writing
 
 ## Compatibility Requirements
 
@@ -38,9 +39,10 @@ Port `tmux-palette` from Bun/TypeScript to Rust while preserving user-facing beh
 3. Port custom palettes and plugin command execution. ✅
    - Rust helper currently uses `sh -c` without a timeout; add one if it can be done cleanly without extra deps.
 4. Port dynamic tmux palettes (`find-pane`, `move-pane`). ✅ initial helpers/items ported; full tree rendering parity still needs TUI work.
-5. Port TUI state machine and terminal IO.
-6. Add Rust launcher behind an opt-in flag.
-7. Switch default launcher after parity validation.
+5. Port theme switcher palette. ✅ item generation/save helper ported; live preview/back navigation depends on TUI.
+6. Port TUI state machine and terminal IO.
+7. Add Rust launcher behind an opt-in flag.
+8. Switch default launcher after parity validation.
 
 ## Validation Commands
 
