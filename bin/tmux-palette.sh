@@ -6,6 +6,31 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CMD_FILE="$(mktemp)"
 trap 'rm -f "$CMD_FILE"' EXIT
 
+get_tmux_opt() {
+  local val
+  val="$($TMUX_BIN show-option -gqv "$1" 2>/dev/null || true)"
+  echo "${val:-$2}"
+}
+
+RUNTIME="${TMUX_PALETTE_RUNTIME:-$(get_tmux_opt @palette-runtime bun)}"
+RUST_BIN="${TMUX_PALETTE_RUST_BIN:-$DIR/target/release/tmux-palette}"
+
+if [ "$RUNTIME" = "rust" ]; then
+  if [ -x "$RUST_BIN" ]; then
+    PALETTE_CMD=("$RUST_BIN")
+    PALETTE_BASE="$(printf %q "$RUST_BIN")"
+  elif command -v cargo >/dev/null 2>&1; then
+    PALETTE_CMD=(cargo run --quiet --manifest-path "$DIR/Cargo.toml" -p tmux-palette --)
+    PALETTE_BASE="cargo run --quiet --manifest-path $(printf %q "$DIR/Cargo.toml") -p tmux-palette --"
+  else
+    tmux display-message "tmux-palette: rust runtime requested but neither $RUST_BIN nor cargo was found"
+    exit 0
+  fi
+else
+  PALETTE_CMD=(bun "$DIR/src/cli.ts")
+  PALETTE_BASE="bun $(printf %q "$DIR/src/cli.ts")"
+fi
+
 PALETTE="${1:-commands}"
 shift || true
 # Remaining args (e.g. --category=Tools) get forwarded to both the
@@ -19,7 +44,7 @@ CW="$($TMUX_BIN display-message -p '#{client_width}' 2>/dev/null || echo 80)"
 # rows<TAB>width<TAB>padX<TAB>border<TAB>bodyStyle<TAB>borderStyle,
 # with defaults + sizing.json applied. Passing client dims lets
 # sizing.json trigger fullscreen mobile mode.
-MEASURE="$(bun "$DIR/src/cli.ts" "$PALETTE" --measure "--cw=$CW" "--ch=$CH" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>/dev/null || echo "20	90	3	none	default	default")"
+MEASURE="$("${PALETTE_CMD[@]}" "$PALETTE" --measure "--cw=$CW" "--ch=$CH" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>/dev/null || echo "20	90	3	none	default	default")"
 IFS=$'\t' read -r WANT_H WANT_W WANT_PADX WANT_BORDER WANT_BODY_STYLE WANT_BORDER_STYLE <<< "$MEASURE"
 WANT_H="${WANT_H:-20}"
 WANT_W="${WANT_W:-90}"
@@ -55,6 +80,7 @@ ARG_STR=""
 for a in "$PALETTE" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
   ARG_STR+=" $(printf %q "$a")"
 done
+PALETTE_INVOCATION="$PALETTE_BASE$ARG_STR"
 
 # BORDERED=1 tells the palette to skip its own top/bottom pad rows
 # (the tmux border replaces them visually, otherwise it looks double-padded).
@@ -64,7 +90,7 @@ BORDERED=0
 # TMUX_PALETTE_BIN is set so { palette: "..." } subpalette chaining knows
 # how to invoke ourselves — without it we'd assume "tmux-palette" is on PATH.
 $TMUX_BIN display-popup "${BORDER_ARGS[@]}" -w "$W" -h "$H" -E \
-  "TMUX_PALETTE_CMD='$CMD_FILE' TMUX_PALETTE_BIN='$0' TMUX_PALETTE_PADX='$WANT_PADX' TMUX_PALETTE_BORDERED='$BORDERED' exec bun '$DIR/src/cli.ts'$ARG_STR"
+  "TMUX_PALETTE_CMD='$CMD_FILE' TMUX_PALETTE_BIN='$0' TMUX_PALETTE_RUNTIME='$RUNTIME' TMUX_PALETTE_PADX='$WANT_PADX' TMUX_PALETTE_BORDERED='$BORDERED' exec $PALETTE_INVOCATION"
 
 if [ -s "$CMD_FILE" ]; then
   CMD="$(cat "$CMD_FILE")"

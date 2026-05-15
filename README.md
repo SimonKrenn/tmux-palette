@@ -111,6 +111,11 @@ Then `prefix + I` (TPM's install key) to install. TPM clones the repo,
 runs `bun install` on first load, and binds the keys for you. Set
 `@palette-key 'off'` to skip the main binding and bind it yourself.
 
+Experimental Rust runtime: set `@palette-runtime 'rust'` to route the same
+launcher through the Rust port. Bun remains the default while parity is being
+validated; the Rust path uses `target/release/tmux-palette` when present, or
+falls back to `cargo run`.
+
 </details>
 
 <details>
