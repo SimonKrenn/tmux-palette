@@ -1,0 +1,21 @@
+.cargo/config.toml
+  s_81c89930589126::t_70fe6457291046 2
+crates/tmux-palette/Cargo.toml
+  s_81c89930589126::t_06c8cf29b9ba12 18-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "ca15c955a891bdcebf07ee44ba1def9d62779723",
+  "prompts": {},
+  "sessions": {
+    "s_81c89930589126": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d38bf6feffebt7IE0YAsyImRF",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
