@@ -1,7 +1,9 @@
 use crate::fuzzy::multi_fuzzy_score;
-use crate::model::{Action, Item, PaletteDef};
+use crate::model::{Action, Colors, Item, PaletteDef};
+use crate::text::display_width;
 use crate::tmux::{tmux, tmux_quote};
 use serde_json::json;
+use std::{collections::BTreeMap, env};
 
 pub fn detect_agent(command: &str, title: &str) -> String {
     let direct = [
@@ -168,6 +170,153 @@ pub fn filter_tree(items: &[Item], query: &str) -> Vec<Item> {
         .collect()
 }
 
+fn shorten_path(path: &str) -> String {
+    let home = env::var("HOME").unwrap_or_default();
+    if !home.is_empty() && path.starts_with(&home) {
+        format!("~{}", &path[home.len()..])
+    } else {
+        path.to_string()
+    }
+}
+
+fn data_str<'a>(data: &'a serde_json::Value, key: &str) -> &'a str {
+    data.get(key).and_then(|v| v.as_str()).unwrap_or("")
+}
+
+fn pane_str<'a>(data: &'a serde_json::Value, key: &str) -> &'a str {
+    data.get("pane")
+        .and_then(|pane| pane.get(key))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+}
+
+fn pane_bool(data: &serde_json::Value, key: &str) -> bool {
+    data.get("pane")
+        .and_then(|pane| pane.get(key))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+pub fn render_find_pane_item(item: &Item, colors: &Colors, active: bool, width: usize) -> String {
+    let row_bg = if active {
+        &colors.selected
+    } else {
+        &colors.panel
+    };
+    let Some(data) = item.data.as_ref() else {
+        return item.title.clone();
+    };
+    match data.get("kind").and_then(|v| v.as_str()) {
+        Some("session") => {
+            let marker = if data.get("isCurrent").and_then(|v| v.as_bool()) == Some(true) {
+                format!("{}▶ {}{}", colors.accent, colors.reset, row_bg)
+            } else {
+                "  ".into()
+            };
+            let session = data_str(data, "session");
+            let count = data.get("count").and_then(|v| v.as_u64()).unwrap_or(0);
+            let path = data_str(data, "path");
+            let path = if path.is_empty() {
+                String::new()
+            } else {
+                format!(
+                    "  {}{}{}{}",
+                    colors.muted,
+                    shorten_path(path),
+                    colors.reset,
+                    row_bg
+                )
+            };
+            format!(
+                "{marker}{}{}{}{}{}{} ({count}){}{}",
+                colors.accent,
+                colors.bold,
+                session,
+                colors.reset,
+                row_bg,
+                colors.muted,
+                colors.reset,
+                row_bg
+            ) + &path
+        }
+        Some("window") => {
+            let prefix = data_str(data, "treePrefix");
+            let name = data_str(data, "windowName");
+            let title_style = if active {
+                format!("{}{}", colors.bold, colors.fg)
+            } else {
+                colors.fg.clone()
+            };
+            format!(
+                "{}{}{}{}{}{}{}{}",
+                colors.muted, prefix, colors.reset, row_bg, title_style, name, colors.reset, row_bg
+            )
+        }
+        Some("pane") => {
+            let prefix = data_str(data, "treePrefix");
+            let title = pane_str(data, "paneTitle");
+            let is_current = pane_bool(data, "isCurrent");
+            let pane_active = pane_bool(data, "paneActive");
+            let (marker_color, marker_char): (&str, &str) = if is_current {
+                (colors.accent.as_str(), "▶")
+            } else if pane_active {
+                ("\x1b[38;2;166;227;161m", "●")
+            } else {
+                (colors.muted.as_str(), "○")
+            };
+            let title_style = if active {
+                format!("{}{}", colors.bold, colors.fg)
+            } else if is_current {
+                colors.fg.clone()
+            } else {
+                colors.muted.clone()
+            };
+            let mut left = format!(
+                "{}{}{}{}{}{}{}{} {}{}{}{}",
+                colors.muted,
+                prefix,
+                colors.reset,
+                row_bg,
+                marker_color,
+                marker_char,
+                colors.reset,
+                row_bg,
+                title_style,
+                title,
+                colors.reset,
+                row_bg
+            );
+            let mut left_width = display_width(prefix) + 1 + 1 + display_width(title);
+            let agent = pane_str(data, "agent");
+            if !agent.is_empty() {
+                left.push_str(&format!(
+                    "  {}{}{}{}",
+                    colors.muted, agent, colors.reset, row_bg
+                ));
+                left_width += 2 + display_width(agent);
+            }
+            let right_text = format!(
+                "{}.{}",
+                pane_str(data, "windowIndex"),
+                pane_str(data, "paneIndex")
+            );
+            let gap = width
+                .saturating_sub(left_width + display_width(&right_text))
+                .max(1);
+            format!(
+                "{}{}{}{}{}{}",
+                left,
+                " ".repeat(gap),
+                colors.muted,
+                right_text,
+                colors.reset,
+                row_bg
+            )
+        }
+        _ => item.title.clone(),
+    }
+}
+
 fn build_items() -> Vec<Item> {
     let current_pane = tmux(&[
         "display-message",
@@ -192,14 +341,24 @@ fn build_items() -> Vec<Item> {
         }
     }
     let mut items = Vec::new();
-    let mut sessions = Vec::new();
-    for p in &panes {
+    let mut sessions = Vec::<String>::new();
+    let mut by_session = BTreeMap::<String, BTreeMap<String, Vec<Pane>>>::new();
+    for p in panes {
         if !sessions.contains(&p.session) {
             sessions.push(p.session.clone());
         }
+        by_session
+            .entry(p.session.clone())
+            .or_default()
+            .entry(p.window_index.clone())
+            .or_default()
+            .push(p);
     }
     for session in sessions {
-        let in_session: Vec<&Pane> = panes.iter().filter(|p| p.session == session).collect();
+        let Some(windows) = by_session.get(&session) else {
+            continue;
+        };
+        let in_session: Vec<&Pane> = windows.values().flat_map(|panes| panes.iter()).collect();
         let focused = in_session
             .iter()
             .find(|p| p.pane_active && p.window_active)
@@ -220,10 +379,53 @@ fn build_items() -> Vec<Item> {
             "isCurrent": session == current_session,
         }));
         items.push(session_item);
-        for p in in_session {
-            let mut pane_item = Item::new(&p.pane_title, pane_select_action(p));
-            pane_item.data = Some(json!({"kind":"pane","pane": p}));
-            items.push(pane_item);
+        let windows_vec: Vec<(&String, &Vec<Pane>)> = windows.iter().collect();
+        for (wi, (window_index, panes)) in windows_vec.iter().enumerate() {
+            let is_last_win = wi == windows_vec.len() - 1;
+            let win_prefix = format!("  {} ", if is_last_win { "└─" } else { "├─" });
+            if panes.len() == 1 {
+                let p = &panes[0];
+                let mut pane_item = Item::new(&p.pane_title, pane_select_action(p));
+                pane_item.data = Some(json!({"kind":"pane","pane": p,"treePrefix": win_prefix}));
+                items.push(pane_item);
+                continue;
+            }
+
+            let mut window_item = Item::new(
+                panes
+                    .first()
+                    .map(|p| p.window_name.as_str())
+                    .unwrap_or("window"),
+                Action::Tmux {
+                    tmux: format!(
+                        "select-window -t {} \\; switch-client -t {}",
+                        tmux_quote(&format!("{}:{}", session, window_index)),
+                        tmux_quote(&session)
+                    ),
+                },
+            );
+            window_item.selectable = Some(false);
+            window_item.data = Some(json!({
+                "kind":"window",
+                "session": session,
+                "windowIndex": window_index,
+                "windowName": panes.first().map(|p| p.window_name.clone()).unwrap_or_default(),
+                "treePrefix": win_prefix,
+            }));
+            items.push(window_item);
+
+            let pane_prefix_base = if is_last_win { "      " } else { "  │   " };
+            for (pi, p) in panes.iter().enumerate() {
+                let is_last_pane = pi == panes.len() - 1;
+                let tree_prefix = format!(
+                    "{}{} ",
+                    pane_prefix_base,
+                    if is_last_pane { "└─" } else { "├─" }
+                );
+                let mut pane_item = Item::new(&p.pane_title, pane_select_action(p));
+                pane_item.data = Some(json!({"kind":"pane","pane": p,"treePrefix": tree_prefix}));
+                items.push(pane_item);
+            }
         }
     }
     items
@@ -305,5 +507,19 @@ mod tests {
         };
         let filtered = filter_tree(&[s, item], "claude");
         assert_eq!(filtered.len(), 2);
+    }
+
+    #[test]
+    fn renders_tree_pane_with_prefix_agent_and_target() {
+        let mut pane = Item::new("api", Action::Shell { shell: ":".into() });
+        pane.data = Some(
+            json!({"kind":"pane","treePrefix":"  └─ ","pane":{"paneTitle":"api","windowIndex":"1","paneIndex":"2","isCurrent":true,"paneActive":true,"agent":"claude"}}),
+        );
+        let colors = crate::theme::make_colors(&crate::theme::default_theme()).unwrap();
+        let out = render_find_pane_item(&pane, &colors, false, 40);
+        assert!(out.contains("└─"));
+        assert!(out.contains("api"));
+        assert!(out.contains("claude"));
+        assert!(out.contains("1.2"));
     }
 }

@@ -76,6 +76,44 @@ fn next_boundary(s: &str, from: usize) -> usize {
         .unwrap_or(s.len())
 }
 
+fn word_back(s: &str, from: usize) -> usize {
+    let mut i = from;
+    while i > 0 {
+        let prev = prev_boundary(s, i);
+        if !s[prev..i].chars().all(char::is_whitespace) {
+            break;
+        }
+        i = prev;
+    }
+    while i > 0 {
+        let prev = prev_boundary(s, i);
+        if s[prev..i].chars().all(char::is_whitespace) {
+            break;
+        }
+        i = prev;
+    }
+    i
+}
+
+fn word_forward(s: &str, from: usize) -> usize {
+    let mut i = from;
+    while i < s.len() {
+        let next = next_boundary(s, i);
+        if !s[i..next].chars().all(char::is_whitespace) {
+            break;
+        }
+        i = next;
+    }
+    while i < s.len() {
+        let next = next_boundary(s, i);
+        if s[i..next].chars().all(char::is_whitespace) {
+            break;
+        }
+        i = next;
+    }
+    i
+}
+
 fn shell_size_expr(spec: &str, axis: &str, pad: u16) -> String {
     if let Some(pct) = spec.strip_suffix('%').and_then(|s| s.parse::<u16>().ok()) {
         return format!(
@@ -267,7 +305,11 @@ impl PaletteRunner {
                     render_category(category, &colors, row_bg)
                 }
                 Row::Item { item, .. } => {
-                    render_default_item(item, &colors, is_selected, body_width)
+                    if self.current_name == "find-pane" {
+                        palettes::render_find_pane_item(item, &colors, is_selected, body_width)
+                    } else {
+                        render_default_item(item, &colors, is_selected, body_width)
+                    }
                 }
             },
         );
@@ -433,6 +475,12 @@ impl PaletteRunner {
         match key.code {
             KeyCode::Esc => return Ok(self.esc()),
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(true),
+            KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.selected = step(&vis, self.selected, -1)
+            }
+            KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                self.selected = step(&vis, self.selected, 1)
+            }
             KeyCode::Enter => {
                 if let Some(item) = vis
                     .get(self.selected)
@@ -454,12 +502,34 @@ impl PaletteRunner {
                     self.selected = step(&vis, self.selected, 1);
                 }
             }
+            KeyCode::Left
+                if key
+                    .modifiers
+                    .intersects(KeyModifiers::ALT | KeyModifiers::CONTROL) =>
+            {
+                self.filter_cursor = word_back(&self.filter, self.filter_cursor)
+            }
+            KeyCode::Right
+                if key
+                    .modifiers
+                    .intersects(KeyModifiers::ALT | KeyModifiers::CONTROL) =>
+            {
+                self.filter_cursor = word_forward(&self.filter, self.filter_cursor)
+            }
             KeyCode::Left => self.filter_cursor = prev_boundary(&self.filter, self.filter_cursor),
             KeyCode::Right => self.filter_cursor = next_boundary(&self.filter, self.filter_cursor),
             KeyCode::Home => self.filter_cursor = 0,
             KeyCode::End => self.filter_cursor = self.filter.len(),
             KeyCode::Backspace => {
-                if self.filter_cursor > 0 {
+                if key
+                    .modifiers
+                    .intersects(KeyModifiers::ALT | KeyModifiers::CONTROL)
+                {
+                    let start = word_back(&self.filter, self.filter_cursor);
+                    self.filter.drain(start..self.filter_cursor);
+                    self.filter_cursor = start;
+                    self.reset_filter_selection();
+                } else if self.filter_cursor > 0 {
                     let prev = prev_boundary(&self.filter, self.filter_cursor);
                     self.filter.drain(prev..self.filter_cursor);
                     self.filter_cursor = prev;
@@ -475,6 +545,12 @@ impl PaletteRunner {
             KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                 self.filter.drain(..self.filter_cursor);
                 self.filter_cursor = 0;
+                self.reset_filter_selection();
+            }
+            KeyCode::Char('w') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                let start = word_back(&self.filter, self.filter_cursor);
+                self.filter.drain(start..self.filter_cursor);
+                self.filter_cursor = start;
                 self.reset_filter_selection();
             }
             KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -585,5 +661,14 @@ mod tests {
             "test",
         );
         assert_eq!(runner.selected, 1);
+    }
+
+    #[test]
+    fn word_motion_respects_utf8_boundaries() {
+        let s = "héllo world";
+        assert_eq!(prev_boundary(s, 3), 1);
+        assert_eq!(next_boundary(s, 1), 3);
+        assert_eq!(word_back(s, s.len()), 7);
+        assert_eq!(word_forward(s, 0), 6);
     }
 }

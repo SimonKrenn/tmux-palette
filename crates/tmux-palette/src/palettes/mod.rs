@@ -4,7 +4,10 @@ mod move_pane;
 mod themes;
 
 pub use commands::commands;
-pub use find_pane::{detect_agent, filter_tree, find_pane, pane_select_action, parse_pane_line};
+pub use find_pane::{
+    detect_agent, filter_tree, find_pane, pane_select_action, parse_pane_line,
+    render_find_pane_item,
+};
 pub use move_pane::{move_pane, parse_window_line};
 pub use themes::{save_theme, themes};
 
