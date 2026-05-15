@@ -1,13 +1,23 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, sync::LazyLock};
 
 use serde::Deserialize;
 
 use crate::{
+    cache::CachedConfig,
     config,
     model::{Colors, Theme},
 };
 
 pub const DEFAULT_SLUG: &str = "shades-of-purple";
+
+static BUNDLED_THEME_MAP: LazyLock<HashMap<String, Theme>> = LazyLock::new(|| {
+    bundled_themes()
+        .into_iter()
+        .map(|entry| (entry.slug, entry.theme))
+        .collect()
+});
+
+static USER_THEMES: CachedConfig<HashMap<String, Theme>> = CachedConfig::new("themes");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeListEntry {
@@ -158,13 +168,6 @@ fn bundled(
     }
 }
 
-fn bundled_theme_map() -> HashMap<String, Theme> {
-    bundled_themes()
-        .into_iter()
-        .map(|entry| (entry.slug, entry.theme))
-        .collect()
-}
-
 fn is_full_theme(theme: &Theme) -> bool {
     !theme.bg.is_empty()
         && !theme.panel.is_empty()
@@ -175,30 +178,32 @@ fn is_full_theme(theme: &Theme) -> bool {
 }
 
 pub fn user_themes() -> HashMap<String, Theme> {
-    let mut out = HashMap::new();
-    let dir = config::config_dir().join("themes");
-    let Ok(entries) = fs::read_dir(dir) else {
-        return out;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
-            continue;
+    USER_THEMES.get_with(|| {
+        let mut out = HashMap::new();
+        let dir = config::config_dir().join("themes");
+        let Ok(entries) = fs::read_dir(dir) else {
+            return out;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                continue;
+            }
+            let Some(slug) = path.file_stem().and_then(|stem| stem.to_str()) else {
+                continue;
+            };
+            let Ok(raw) = fs::read_to_string(&path) else {
+                continue;
+            };
+            let Ok(theme) = serde_json::from_str::<Theme>(&raw) else {
+                continue;
+            };
+            if is_full_theme(&theme) {
+                out.insert(slug.to_string(), theme);
+            }
         }
-        let Some(slug) = path.file_stem().and_then(|stem| stem.to_str()) else {
-            continue;
-        };
-        let Ok(raw) = fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(theme) = serde_json::from_str::<Theme>(&raw) else {
-            continue;
-        };
-        if is_full_theme(&theme) {
-            out.insert(slug.to_string(), theme);
-        }
-    }
-    out
+        out
+    })
 }
 
 pub fn list_themes() -> Vec<ThemeListEntry> {
@@ -225,10 +230,10 @@ pub fn resolve_theme(theme: Option<&str>) -> anyhow::Result<Theme> {
     let Some(slug) = theme else {
         return Ok(default_theme());
     };
-    if let Some(theme) = user_themes().remove(slug) {
+    if let Some(theme) = user_themes().get(slug).cloned() {
         return Ok(theme);
     }
-    if let Some(theme) = bundled_theme_map().remove(slug) {
+    if let Some(theme) = BUNDLED_THEME_MAP.get(slug).cloned() {
         return Ok(theme);
     }
     anyhow::bail!("Unknown theme: {slug}")

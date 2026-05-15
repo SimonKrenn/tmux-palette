@@ -1,5 +1,5 @@
+use crate::cache::CachedConfig;
 use crate::model::{Action, CustomPalette, Item, PaletteDef, Sizing};
-use serde::de::DeserializeOwned;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ pub(crate) fn config_dir() -> PathBuf {
     base.join("tmux-palette")
 }
 
-pub(crate) fn load_json<T: DeserializeOwned>(name: &str, fallback: T) -> T {
+pub(crate) fn load_json<T: serde::de::DeserializeOwned>(name: &str, fallback: T) -> T {
     let path = config_dir().join(name);
     let raw = match fs::read_to_string(path) {
         Ok(raw) => raw,
@@ -24,24 +24,33 @@ pub(crate) fn load_json<T: DeserializeOwned>(name: &str, fallback: T) -> T {
     serde_json::from_str(&raw).unwrap_or(fallback)
 }
 
+static USER_SHORTCUTS: CachedConfig<std::collections::HashMap<String, String>> =
+    CachedConfig::new("shortcuts.json");
+static USER_ALIASES: CachedConfig<std::collections::HashMap<String, Vec<String>>> =
+    CachedConfig::new("aliases.json");
+static USER_COMMANDS: CachedConfig<Vec<Item>> = CachedConfig::new("commands.json");
+static USER_HIDDEN: CachedConfig<std::collections::HashSet<String>> =
+    CachedConfig::new("hidden.json");
+static USER_SIZING: CachedConfig<Sizing> = CachedConfig::new("sizing.json");
+
 pub fn user_shortcuts() -> std::collections::HashMap<String, String> {
-    load_json("shortcuts.json", std::collections::HashMap::new())
+    USER_SHORTCUTS.get()
 }
 
 pub fn user_aliases() -> std::collections::HashMap<String, Vec<String>> {
-    load_json("aliases.json", std::collections::HashMap::new())
+    USER_ALIASES.get()
 }
 
 pub fn user_commands() -> Vec<Item> {
-    load_json("commands.json", Vec::new())
+    USER_COMMANDS.get()
 }
 
 pub fn user_hidden() -> std::collections::HashSet<String> {
-    load_json("hidden.json", std::collections::HashSet::new())
+    USER_HIDDEN.get()
 }
 
 pub fn user_sizing() -> Sizing {
-    load_json("sizing.json", Sizing::default())
+    USER_SIZING.get()
 }
 
 pub fn user_palette(name: &str) -> Option<CustomPalette> {
