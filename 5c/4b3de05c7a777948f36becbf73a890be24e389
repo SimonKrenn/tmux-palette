@@ -1,0 +1,40 @@
+crates/tmux-palette/src/theme.rs
+  s_172294d812ba0d::t_e458ab544d3106 1,6
+  s_172294d812ba0d::t_c619198e332447 181-185,187-203,205-206
+  s_172294d812ba0d::t_b59be0f3c771ae 233,236
+  s_172294d812ba0d::t_a285d4a0c496b4 13-21
+.cargo/config.toml
+  s_2528dc87ff45cf::t_a65279d4047aed 1-2
+crates/tmux-palette/src/cache.rs
+  s_172294d812ba0d::t_7f9442a92cafbe 1,3-91
+  s_172294d812ba0d::t_ec3c1b0d03d4e0 2
+crates/tmux-palette/src/config.rs
+  s_172294d812ba0d::t_552425b03c9ca2 1
+  s_172294d812ba0d::t_1dd134504f1400 18,27-35,37,41,45,49,53
+crates/tmux-palette/src/lib.rs
+  s_172294d812ba0d::t_b9974688776182 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "5c4b3de05c7a777948f36becbf73a890be24e389",
+  "prompts": {},
+  "sessions": {
+    "s_172294d812ba0d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3a4862fffe20msdCpQr12I5d",
+        "model": "minimax-m2.7"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    },
+    "s_2528dc87ff45cf": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3907437ffeF8eFM4KEpiepLV",
+        "model": "minimax-m2.7"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
