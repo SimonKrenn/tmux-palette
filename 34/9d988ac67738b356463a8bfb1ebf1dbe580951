@@ -1,0 +1,35 @@
+crates/tmux-palette/src/palettes/find_pane.rs
+  s_a8cf24d298e191::t_d27ad1deb28a97 238-239
+  s_a8cf24d298e191::t_cdb7aff4043168 231
+  s_a8cf24d298e191::t_5245762e16af12 2-3,6,173-199,206-221,229-230,240-259,262-264,266-291,296-297,306-319,344-346,350-355,361,382-394,399-428
+  s_a8cf24d298e191::t_df11e940dc77f7 200-205,222-228,232-237,292-295,298-305,358-360,395-398
+  s_a8cf24d298e191::t_2c9346e659e2bb 511-514,518-524
+  s_a8cf24d298e191::t_29f8df3be32c79 260-261,265
+  s_a8cf24d298e191::t_1dfca088af6202 515-517
+crates/tmux-palette/src/palettes/mod.rs
+  s_a8cf24d298e191::t_29f8df3be32c79 7-10
+crates/tmux-palette/src/tui.rs
+  s_a8cf24d298e191::t_df11e940dc77f7 505-509,512-516,524-527
+  s_a8cf24d298e191::t_d7bfe755cd8e56 79-116,478-483,510-511,517-518,528-532,550-553
+  s_a8cf24d298e191::t_2c9346e659e2bb 665-668,670-673
+  s_a8cf24d298e191::t_0b248b720ce7fc 308-312
+  s_a8cf24d298e191::t_8dfb1ec40bb342 669
+RUST_MIGRATION.md
+  s_a8cf24d298e191::t_aaa2fd770fd25b 28,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "349d988ac67738b356463a8bfb1ebf1dbe580951",
+  "prompts": {},
+  "sessions": {
+    "s_a8cf24d298e191": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3eda41effe6abysOVGyB7x5r",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
