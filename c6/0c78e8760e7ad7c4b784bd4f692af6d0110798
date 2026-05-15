@@ -1,0 +1,51 @@
+crates/tmux-palette/src/palettes/find_pane.rs
+  s_a8cf24d298e191::t_df90b707c4205d 22-23,28,36,57-59,249,256-260
+  s_527574bec21385::t_a054ace72bd207 35,172-176
+  s_527574bec21385::t_5b9272ed91539b 171,177-231,235
+  s_527574bec21385::t_9165ef02110495 4
+  s_527574bec21385::t_03147409a5444e 7-21,24-27,29-31,37-50,54-56,61-65,67-84,88-95,99-106,114-131,135-137,142-168,232-234,236-239,246-248,250,252-255,261,263-283,285-308
+  s_527574bec21385::t_592a7f392892fb 1-3,5-6,32-34,51-53,60,66,85-87,96-98,107-113,132-134,138-141,169-170,240-245,251,262,284,309
+crates/tmux-palette/src/palettes/commands.rs
+  s_527574bec21385::t_592a7f392892fb 1-18,25-27,42,49,62-65,85-87,100,107,126,145,164-167,174
+  s_527574bec21385::t_03147409a5444e 19-24,28-41,43-48,50-61,66-84,88-99,101-106,108-125,127-144,146-163,168-173
+RUST_MIGRATION.md
+  s_a8cf24d298e191::t_989b72f77f6be8 36-38,40
+  s_527574bec21385::t_9902e2c7524870 24
+crates/tmux-palette/src/tmux.rs
+  s_527574bec21385::t_03147409a5444e 5-7
+  s_527574bec21385::t_ac7169bc331ee8 13
+  s_527574bec21385::t_592a7f392892fb 1-4,8-12,14
+crates/tmux-palette/src/palettes/mod.rs
+  s_527574bec21385::t_89e24ebdb9da10 1-3,5-7,9,14-15
+crates/tmux-palette/src/lib.rs
+  s_527574bec21385::t_03147409a5444e 9
+crates/tmux-palette/src/palettes/move_pane.rs
+  s_527574bec21385::t_95afcbb422ea42 14-15
+  s_527574bec21385::t_592a7f392892fb 1-7,16-19,38-42,46,60-69,85-86,93-98,105,118
+  s_527574bec21385::t_03147409a5444e 11-13,20-37,43-45,47-59,70-84,87-92,99-104,106-110,117
+  s_a8cf24d298e191::t_df90b707c4205d 8-10,111-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "c60c78e8760e7ad7c4b784bd4f692af6d0110798",
+  "prompts": {},
+  "sessions": {
+    "s_527574bec21385": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3dbbbd9ffe4Z42yNyFhgukI7",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    },
+    "s_a8cf24d298e191": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3eda41effe6abysOVGyB7x5r",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
