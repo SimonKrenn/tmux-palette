@@ -1,3 +1,5 @@
+Rust slop-port of  https://github.com/eduwass/tmux-palette
+
 # tmux-palette
 
 A command palette for tmux. It runs on [Bun](https://bun.sh), has no runtime
