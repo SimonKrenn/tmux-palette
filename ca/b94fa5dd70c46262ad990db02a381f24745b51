@@ -1,0 +1,47 @@
+crates/tmux-palette/src/theme.rs
+  s_a8cf24d298e191::t_905acd09d4d11e 1-4,9-24,37-38,133-135,146-148,157-254,274
+  s_a8cf24d298e191::t_de398d62ca7205 5-8,39-132,136-145,149-156,255-272
+crates/tmux-palette/src/model.rs
+  s_e001fd46268417::t_25e6f4c82fe8ed 96-130
+crates/tmux-palette/src/config.rs
+  s_e001fd46268417::t_880e8533570663 1-7,9-14,16-47,54-68,70-71,78-87,99,107-108,115,119,127,129-132,140-145,147-148,155-157,161,163-166,173-174,181,189-194,196-197,200,202-216,222-224,230-241,246-250,259-262,273-274
+  s_e001fd46268417::t_4471ffe3aa2384 195,198-199,201
+  s_a8cf24d298e191::t_de398d62ca7205 103,128
+  s_e001fd46268417::t_a989d1d7f4247c 88-93,116-118,149-154,167,169-172,183-188,217-221,225-229,242-245,251-252,254,258
+  s_a8cf24d298e191::t_5d5b74e3bac997 253,255-257,263-272
+  s_a8cf24d298e191::t_905acd09d4d11e 8,15
+  s_e001fd46268417::t_d23f70d4b3f26f 146
+  s_a8cf24d298e191::t_cd4bb55a477b93 48-53,69,72-77,94-98,100-102,104-106,109-114,120-126,133-139,158-160,162,168,175-180,182
+crates/tmux-palette/src/lib.rs
+  s_e001fd46268417::t_a989d1d7f4247c 2
+crates/tmux-palette/src/main.rs
+  s_a8cf24d298e191::t_de398d62ca7205 24-26,50-52
+  s_a8cf24d298e191::t_32ccc69e6b5611 21,23,27-29,43-49,53-55,57-64
+RUST_MIGRATION.md
+  s_e001fd46268417::t_b2f6a5940efba3 38
+  s_a8cf24d298e191::t_0ce21c26881b28 13,20-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "cab94fa5dd70c46262ad990db02a381f24745b51",
+  "prompts": {},
+  "sessions": {
+    "s_a8cf24d298e191": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3eda41effe6abysOVGyB7x5r",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    },
+    "s_e001fd46268417": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1d3dfdb88ffe4AtGPF7cI0Tx3L",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
