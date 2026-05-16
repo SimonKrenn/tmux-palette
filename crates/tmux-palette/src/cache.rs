@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    sync::Mutex,
-    time::SystemTime,
-};
+use std::{fs, sync::Mutex, time::SystemTime};
 
 pub struct CachedConfig<T> {
     rel_path: &'static str,
@@ -46,6 +42,7 @@ impl<T: Clone + Default + serde::de::DeserializeOwned> CachedConfig<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ENV_LOCK;
     use std::env;
     use tempfile::TempDir;
 
@@ -72,8 +69,8 @@ mod tests {
     #[test]
     fn cache_updates_when_file_added() {
         with_config(|| {
-            let dir = env::var_os("XDG_CONFIG_HOME").unwrap();
-            let dir = std::path::PathBuf::from(dir);
+            let dir = crate::config::config_dir();
+            fs::create_dir_all(&dir).unwrap();
             static CACHE: CachedConfig<Vec<String>> = CachedConfig::new("items.json");
 
             assert_eq!(CACHE.get(), Vec::<String>::default());
@@ -86,6 +83,3 @@ mod tests {
         });
     }
 }
-
-#[cfg(test)]
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

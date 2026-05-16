@@ -1,5 +1,6 @@
 use crate::cache::CachedConfig;
 use crate::model::{Action, CustomPalette, Item, PaletteDef, Sizing};
+use anyhow::Context;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -57,6 +58,18 @@ pub fn user_palette(name: &str) -> Option<CustomPalette> {
     load_json(&format!("palettes/{name}.json"), None)
 }
 
+fn read_user_palette(name: &str) -> anyhow::Result<Option<CustomPalette>> {
+    let path = config_dir().join("palettes").join(format!("{name}.json"));
+    let raw = match fs::read_to_string(&path) {
+        Ok(raw) => raw,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err).with_context(|| format!("Failed to read {}", path.display())),
+    };
+    let palette = serde_json::from_str::<CustomPalette>(&raw)
+        .with_context(|| format!("Failed to parse {}", path.display()))?;
+    Ok(Some(palette))
+}
+
 fn parse_plain_text(
     output: &str,
     default_action: Action,
@@ -71,10 +84,10 @@ fn parse_plain_text(
             let (icon, icon_color, title) = match parts.as_slice() {
                 [title] => (None, None, (*title).to_string()),
                 [icon, title] => (Some((*icon).to_string()), None, (*title).to_string()),
-                [icon, color, title, ..] => (
+                [icon, color, ..] => (
                     Some((*icon).to_string()),
                     Some((*color).to_string()),
-                    (*title).to_string(),
+                    parts[2..].join("\t"),
                 ),
                 _ => (None, None, line.to_string()),
             };
@@ -156,24 +169,31 @@ pub fn plugin_items(
 }
 
 pub fn load_palette(name: &str) -> Option<PaletteDef> {
+    load_palette_result(name).ok().flatten()
+}
+
+pub fn load_palette_result(name: &str) -> anyhow::Result<Option<PaletteDef>> {
     if name == "commands" {
         let mut items = crate::palettes::commands().items;
         items.extend(user_commands());
         let hidden = user_hidden();
         items.retain(|item| !hidden.contains(&item.title));
-        return Some(PaletteDef {
+        return Ok(Some(PaletteDef {
             title: Some("Commands".into()),
             items,
             grouped: true,
             empty_text: None,
-        });
+        }));
     }
 
     if let Some(builtin) = crate::palettes::load_builtin(name) {
-        return Some(builtin);
+        return Ok(Some(builtin));
     }
 
-    let custom = user_palette(name)?;
+    let custom = match read_user_palette(name)? {
+        Some(custom) => custom,
+        None => return Ok(None),
+    };
     let mut items = Vec::new();
     let mut all_main = crate::palettes::commands().items;
     all_main.extend(user_commands());
@@ -199,12 +219,12 @@ pub fn load_palette(name: &str) -> Option<PaletteDef> {
         ));
     }
     items.extend(custom.items);
-    Some(PaletteDef {
-        title: custom.title,
+    Ok(Some(PaletteDef {
+        title: Some(custom.title.unwrap_or_else(|| name.to_string())),
         items,
         grouped: custom.grouped.unwrap_or(false),
         empty_text: custom.empty_text,
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -263,9 +283,43 @@ mod tests {
     }
 
     #[test]
+    fn loads_command_only_custom_palette_and_uses_name_as_title() {
+        with_config(|| {
+            let cfg = config_dir().join("palettes");
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(
+                cfg.join("git-branches.json"),
+                r#"{"command":"printf 'main\n'","action":{"tmux":"send-keys 'git checkout {}' Enter"}}"#,
+            )
+            .unwrap();
+
+            let palette = load_palette_result("git-branches").unwrap().unwrap();
+            assert_eq!(palette.title.as_deref(), Some("git-branches"));
+            assert_eq!(palette.items[0].title, "main");
+        });
+    }
+
+    #[test]
+    fn custom_palette_parse_errors_are_visible() {
+        with_config(|| {
+            let cfg = config_dir().join("palettes");
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(
+                cfg.join("broken.json"),
+                r#"{"items":[{"title":"Missing action"}]}"#,
+            )
+            .unwrap();
+
+            let err = load_palette_result("broken").unwrap_err().to_string();
+            assert!(err.contains("Failed to parse"));
+            assert!(err.contains("broken.json"));
+        });
+    }
+
+    #[test]
     fn parses_plain_text_plugin_output() {
         let items = plugin_items(
-            "printf 'A\tB\tTitle\nPlain\n'",
+            "printf 'A\tB\tTitle\nPlain\nA\tB\tTitle\twith\ttabs\n'",
             Some(Action::Shell {
                 shell: "open {}".into(),
             }),
@@ -276,6 +330,7 @@ mod tests {
         assert_eq!(items[0].icon.as_deref(), Some("A"));
         assert_eq!(items[0].icon_color.as_deref(), Some("B"));
         assert_eq!(items[1].title, "Plain");
+        assert_eq!(items[2].title, "Title\twith\ttabs");
     }
 
     #[test]

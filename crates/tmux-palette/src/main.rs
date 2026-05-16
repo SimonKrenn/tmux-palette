@@ -28,8 +28,8 @@ fn apply_category_filter(palette: &mut tmux_palette::model::PaletteDef, category
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     if args.measure {
-        let mut palette = tmux_palette::config::load_palette(&args.palette)
-            .ok_or_else(|| anyhow::anyhow!("Unknown palette: {}", args.palette))?;
+        let mut palette = tmux_palette::config::load_palette_result(&args.palette)?
+            .ok_or_else(|| unknown_palette_error(&args.palette))?;
         apply_category_filter(&mut palette, args.category.as_deref());
         let items = palette.items;
         let grouped = palette.grouped;
@@ -69,8 +69,14 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut palette = tmux_palette::config::load_palette(&args.palette)
-        .ok_or_else(|| anyhow::anyhow!("Unknown palette: {}", args.palette))?;
+    let mut palette = tmux_palette::config::load_palette_result(&args.palette)?
+        .ok_or_else(|| unknown_palette_error(&args.palette))?;
     apply_category_filter(&mut palette, args.category.as_deref());
     tmux_palette::tui::run_palette(palette, args.palette)
+}
+
+fn unknown_palette_error(name: &str) -> anyhow::Error {
+    anyhow::anyhow!(
+        "Unknown palette: {name}. Built-in: commands, find-pane, move-pane, themes. Custom palettes go in ~/.config/tmux-palette/palettes/{name}.json"
+    )
 }
