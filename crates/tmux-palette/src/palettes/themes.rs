@@ -8,11 +8,17 @@ use crate::{
 const CUSTOM_THEME_DOCS: &str = "https://github.com/eduwass/tmux-palette#custom-themes";
 
 pub fn save_theme(slug: &str) -> std::io::Result<()> {
-    let path = crate::config::config_dir().join("theme.json");
+    let path = crate::config::config_dir().join("theme.toml");
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(path, format!("{}\n", serde_json::json!({ "name": slug })))
+    fs::write(
+        path,
+        format!(
+            "name = {}\n",
+            serde_json::to_string(slug).expect("string serializes")
+        ),
+    )
 }
 
 pub fn themes() -> PaletteDef {
@@ -66,7 +72,9 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let old = env::var_os("XDG_CONFIG_HOME");
         env::set_var("XDG_CONFIG_HOME", dir.path());
+        crate::theme::clear_theme_cache();
         f(&dir);
+        crate::theme::clear_theme_cache();
         match old {
             Some(v) => env::set_var("XDG_CONFIG_HOME", v),
             None => env::remove_var("XDG_CONFIG_HOME"),
@@ -117,11 +125,38 @@ mod tests {
     }
 
     #[test]
+    fn theme_items_load_toml_user_themes() {
+        with_config(|_| {
+            let dir = crate::config::config_dir().join("themes");
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                dir.join("mine.toml"),
+                r##"bg = "#111111"
+panel = "#222222"
+selected = "#333333"
+fg = "#eeeeee"
+muted = "#999999"
+accent = "#ff00ff"
+"##,
+            )
+            .unwrap();
+            let palette = themes();
+            let mine = palette
+                .items
+                .iter()
+                .find(|item| item.title == "mine")
+                .unwrap();
+            assert_eq!(mine.description.as_deref(), Some("custom"));
+            assert_eq!(mine.icon_color.as_deref(), Some("#ff00ff"));
+        });
+    }
+
+    #[test]
     fn save_theme_writes_active_theme_file() {
         with_config(|_| {
             save_theme("dracula").unwrap();
-            let raw = fs::read_to_string(crate::config::config_dir().join("theme.json")).unwrap();
-            assert_eq!(raw, "{\"name\":\"dracula\"}\n");
+            let raw = fs::read_to_string(crate::config::config_dir().join("theme.toml")).unwrap();
+            assert_eq!(raw, "name = \"dracula\"\n");
         });
     }
 }

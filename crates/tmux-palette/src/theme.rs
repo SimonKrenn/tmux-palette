@@ -19,6 +19,11 @@ static BUNDLED_THEME_MAP: LazyLock<HashMap<String, Theme>> = LazyLock::new(|| {
 
 static USER_THEMES: CachedConfig<HashMap<String, Theme>> = CachedConfig::new("themes");
 
+#[cfg(test)]
+pub(crate) fn clear_theme_cache() {
+    USER_THEMES.clear();
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ThemeListEntry {
     pub slug: String,
@@ -184,9 +189,20 @@ pub fn user_themes() -> HashMap<String, Theme> {
         let Ok(entries) = fs::read_dir(dir) else {
             return out;
         };
-        for entry in entries.flatten() {
+        let mut entries: Vec<_> = entries.flatten().collect();
+        entries.sort_by_key(
+            |entry| match entry.path().extension().and_then(|ext| ext.to_str()) {
+                Some("json") => 0,
+                Some("toml") => 1,
+                _ => 2,
+            },
+        );
+        for entry in entries {
             let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            let Some(ext) = path.extension().and_then(|ext| ext.to_str()) else {
+                continue;
+            };
+            if ext != "toml" && ext != "json" {
                 continue;
             }
             let Some(slug) = path.file_stem().and_then(|stem| stem.to_str()) else {
@@ -195,7 +211,12 @@ pub fn user_themes() -> HashMap<String, Theme> {
             let Ok(raw) = fs::read_to_string(&path) else {
                 continue;
             };
-            let Ok(theme) = serde_json::from_str::<Theme>(&raw) else {
+            let theme = match ext {
+                "toml" => toml::from_str::<Theme>(&raw).ok(),
+                "json" => serde_json::from_str::<Theme>(&raw).ok(),
+                _ => None,
+            };
+            let Some(theme) = theme else {
                 continue;
             };
             if is_full_theme(&theme) {
@@ -251,7 +272,7 @@ struct UserThemeFile {
 }
 
 pub fn resolve_active_theme(declared: Option<&str>) -> anyhow::Result<Theme> {
-    let file: Option<UserThemeFile> = config::load_json("theme.json", None);
+    let file: Option<UserThemeFile> = config::load_config("theme", None);
     if let Some(name) = file.as_ref().and_then(|file| file.name.as_deref()) {
         return resolve_theme(Some(name));
     }

@@ -1,41 +1,28 @@
-import { readFileSync } from "node:fs"
+import { loadJSON } from "./config"
 import type { Item } from "./types"
-
-const CONFIG_DIR =
-  `${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/tmux-palette`
-
-function loadJSON<T>(name: string, fallback: T): T {
-  try {
-    const raw = readFileSync(`${CONFIG_DIR}/${name}`, "utf8")
-    const parsed = JSON.parse(raw)
-    return parsed ?? fallback
-  } catch {
-    return fallback
-  }
-}
 
 let _shortcuts: Record<string, string> | null = null
 export function userShortcuts(): Record<string, string> {
-  if (!_shortcuts) _shortcuts = loadJSON<Record<string, string>>("shortcuts.json", {})
+  if (!_shortcuts) _shortcuts = loadJSON<Record<string, string>>("shortcuts", {})
   return _shortcuts
 }
 
 let _aliases: Record<string, string[]> | null = null
 export function userAliases(): Record<string, string[]> {
-  if (!_aliases) _aliases = loadJSON<Record<string, string[]>>("aliases.json", {})
+  if (!_aliases) _aliases = loadJSON<Record<string, string[]>>("aliases", {})
   return _aliases
 }
 
 let _commands: Item[] | null = null
 export function userCommands(): Item[] {
-  if (!_commands) _commands = loadJSON<Item[]>("commands.json", [])
+  if (!_commands) _commands = loadJSON<Item[]>("commands", [])
   return _commands
 }
 
 let _hidden: Set<string> | null = null
 export function userHidden(): Set<string> {
   if (!_hidden) {
-    const list = loadJSON<string[]>("hidden.json", [])
+    const list = loadJSON<string[]>("hidden", [])
     _hidden = new Set(list)
   }
   return _hidden
@@ -79,7 +66,7 @@ export type Sizing = {
 }
 let _sizing: Sizing | null = null
 export function userSizing(): Sizing {
-  if (!_sizing) _sizing = loadJSON<Sizing>("sizing.json", {})
+  if (!_sizing) _sizing = loadJSON<Sizing>("sizing", {})
   return _sizing
 }
 
@@ -107,5 +94,5 @@ export type CustomPalette = {
   emptyText?: string
 }
 export function userPalette(name: string): CustomPalette | null {
-  return loadJSON<CustomPalette | null>(`palettes/${name}.json`, null)
+  return loadJSON<CustomPalette | null>(`palettes/${name}`, null)
 }

@@ -14,16 +14,15 @@ impl<T: Clone + Default + serde::de::DeserializeOwned> CachedConfig<T> {
     }
 
     pub fn get(&self) -> T {
-        self.get_with(|| {
-            let path = crate::config::config_dir().join(self.rel_path);
-            let raw = fs::read_to_string(&path).unwrap_or_default();
-            serde_json::from_str(&raw).unwrap_or_default()
-        })
+        self.get_with(|| crate::config::load_config(self.rel_path, T::default()))
     }
 
     pub fn get_with<F: FnOnce() -> T>(&self, loader: F) -> T {
         let path = crate::config::config_dir().join(self.rel_path);
-        let current_mtime = fs::metadata(&path).ok().and_then(|m| m.modified().ok());
+        let current_mtime = fs::metadata(&path)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .or_else(|| crate::config::config_file_mtime(self.rel_path));
 
         let mut guard = self.state.lock().unwrap();
 
@@ -36,6 +35,11 @@ impl<T: Clone + Default + serde::de::DeserializeOwned> CachedConfig<T> {
         let value = loader();
         *guard = Some((current_mtime, value.clone()));
         value
+    }
+
+    #[cfg(test)]
+    pub fn clear(&self) {
+        self.state.lock().unwrap().take();
     }
 }
 
@@ -61,7 +65,7 @@ mod tests {
     #[test]
     fn cache_returns_default_when_file_missing() {
         with_config(|| {
-            static CACHE: CachedConfig<Vec<String>> = CachedConfig::new("missing.json");
+            static CACHE: CachedConfig<Vec<String>> = CachedConfig::new("missing");
             assert_eq!(CACHE.get(), Vec::<String>::default());
         });
     }
@@ -71,7 +75,7 @@ mod tests {
         with_config(|| {
             let dir = crate::config::config_dir();
             fs::create_dir_all(&dir).unwrap();
-            static CACHE: CachedConfig<Vec<String>> = CachedConfig::new("items.json");
+            static CACHE: CachedConfig<Vec<String>> = CachedConfig::new("items");
 
             assert_eq!(CACHE.get(), Vec::<String>::default());
 

@@ -1,9 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs"
+import { CONFIG_DIR, loadJSON } from "./config"
 import { bundledThemeMap, bundledThemes, type BundledTheme } from "./themes-bundled"
 import type { Colors, Theme } from "./types"
-
-const CONFIG_DIR =
-  `${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/tmux-palette`
 
 const DEFAULT_SLUG = "shades-of-purple"
 
@@ -92,8 +90,7 @@ let _userThemeFile: UserThemeFile | null | undefined = undefined
 function userThemeFile(): UserThemeFile | null {
   if (_userThemeFile !== undefined) return _userThemeFile
   try {
-    const raw = readFileSync(`${CONFIG_DIR}/theme.json`, "utf8")
-    _userThemeFile = JSON.parse(raw) as UserThemeFile
+    _userThemeFile = loadJSON<UserThemeFile | null>("theme", null)
   } catch {
     _userThemeFile = null
   }

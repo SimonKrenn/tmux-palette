@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
+import { CONFIG_DIR } from "../config"
 import { definePalette } from "../palette"
 import { invalidateThemeCache, listThemes } from "../theme"
 import type { Item, Theme } from "../types"
 
-const CONFIG_FILE =
-  `${process.env.XDG_CONFIG_HOME ?? `${process.env.HOME ?? ""}/.config`}/tmux-palette/theme.json`
+const CONFIG_FILE = `${CONFIG_DIR}/theme.json`
 const CUSTOM_THEME_DOCS =
   "https://github.com/eduwass/tmux-palette#custom-themes"
 

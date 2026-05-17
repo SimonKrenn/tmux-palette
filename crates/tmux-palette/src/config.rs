@@ -1,6 +1,7 @@
 use crate::cache::CachedConfig;
 use crate::model::{Action, CustomPalette, Item, PaletteDef, Sizing};
 use anyhow::Context;
+use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -16,38 +17,138 @@ pub(crate) fn config_dir() -> PathBuf {
     base.join("tmux-palette")
 }
 
-pub(crate) fn load_json<T: serde::de::DeserializeOwned>(name: &str, fallback: T) -> T {
-    let path = config_dir().join(name);
-    let raw = match fs::read_to_string(path) {
-        Ok(raw) => raw,
-        Err(_) => return fallback,
+#[derive(Clone, Copy)]
+pub(crate) enum ConfigFormat {
+    Toml,
+    Json,
+}
+
+pub(crate) fn config_file_path(name: &str) -> Option<(PathBuf, ConfigFormat)> {
+    let base = config_dir();
+    let toml = base.join(format!("{name}.toml"));
+    if toml.exists() {
+        return Some((toml, ConfigFormat::Toml));
+    }
+    let json = base.join(format!("{name}.json"));
+    if json.exists() {
+        return Some((json, ConfigFormat::Json));
+    }
+    None
+}
+
+pub(crate) fn config_file_mtime(name: &str) -> Option<std::time::SystemTime> {
+    config_file_path(name).and_then(|(path, _)| fs::metadata(path).ok()?.modified().ok())
+}
+
+pub(crate) fn read_config_file(
+    name: &str,
+) -> anyhow::Result<Option<(String, ConfigFormat, PathBuf)>> {
+    let Some((path, format)) = config_file_path(name) else {
+        return Ok(None);
     };
-    serde_json::from_str(&raw).unwrap_or(fallback)
+    let raw =
+        fs::read_to_string(&path).with_context(|| format!("Failed to read {}", path.display()))?;
+    Ok(Some((raw, format, path)))
+}
+
+pub(crate) fn parse_config<T: serde::de::DeserializeOwned>(
+    raw: &str,
+    format: ConfigFormat,
+) -> anyhow::Result<T> {
+    match format {
+        ConfigFormat::Toml => toml::from_str(raw).context("Failed to parse TOML"),
+        ConfigFormat::Json => serde_json::from_str(raw).context("Failed to parse JSON"),
+    }
+}
+
+pub(crate) fn load_config<T: serde::de::DeserializeOwned>(name: &str, fallback: T) -> T {
+    match read_config_file(name) {
+        Ok(Some((raw, format, _))) => parse_config(&raw, format).unwrap_or(fallback),
+        Ok(None) | Err(_) => fallback,
+    }
 }
 
 static USER_SHORTCUTS: CachedConfig<std::collections::HashMap<String, String>> =
-    CachedConfig::new("shortcuts.json");
+    CachedConfig::new("shortcuts");
 static USER_ALIASES: CachedConfig<std::collections::HashMap<String, Vec<String>>> =
-    CachedConfig::new("aliases.json");
-static USER_COMMANDS: CachedConfig<Vec<Item>> = CachedConfig::new("commands.json");
-static USER_HIDDEN: CachedConfig<std::collections::HashSet<String>> =
-    CachedConfig::new("hidden.json");
-static USER_SIZING: CachedConfig<Sizing> = CachedConfig::new("sizing.json");
+    CachedConfig::new("aliases");
+static USER_COMMANDS: CachedConfig<Vec<Item>> = CachedConfig::new("commands");
+static USER_HIDDEN: CachedConfig<std::collections::HashSet<String>> = CachedConfig::new("hidden");
+static USER_SIZING: CachedConfig<Sizing> = CachedConfig::new("sizing");
+
+#[cfg(test)]
+fn clear_user_config_cache() {
+    USER_SHORTCUTS.clear();
+    USER_ALIASES.clear();
+    USER_COMMANDS.clear();
+    USER_HIDDEN.clear();
+    USER_SIZING.clear();
+}
+
+#[derive(Deserialize, Default)]
+struct ShortcutsFile {
+    #[serde(default)]
+    shortcuts: std::collections::HashMap<String, String>,
+}
+
+#[derive(Deserialize, Default)]
+struct AliasesFile {
+    #[serde(default)]
+    aliases: std::collections::HashMap<String, Vec<String>>,
+}
+
+#[derive(Deserialize, Default)]
+struct CommandsFile {
+    #[serde(default)]
+    commands: Vec<Item>,
+}
+
+#[derive(Deserialize, Default)]
+struct HiddenFile {
+    #[serde(default)]
+    hidden: std::collections::HashSet<String>,
+}
 
 pub fn user_shortcuts() -> std::collections::HashMap<String, String> {
-    USER_SHORTCUTS.get()
+    USER_SHORTCUTS.get_with(|| match read_config_file("shortcuts") {
+        Ok(Some((raw, ConfigFormat::Toml, _))) => toml::from_str::<ShortcutsFile>(&raw)
+            .map(|file| file.shortcuts)
+            .or_else(|_| toml::from_str(&raw))
+            .unwrap_or_default(),
+        Ok(Some((raw, ConfigFormat::Json, _))) => serde_json::from_str(&raw).unwrap_or_default(),
+        Ok(None) | Err(_) => Default::default(),
+    })
 }
 
 pub fn user_aliases() -> std::collections::HashMap<String, Vec<String>> {
-    USER_ALIASES.get()
+    USER_ALIASES.get_with(|| match read_config_file("aliases") {
+        Ok(Some((raw, ConfigFormat::Toml, _))) => toml::from_str::<AliasesFile>(&raw)
+            .map(|file| file.aliases)
+            .or_else(|_| toml::from_str(&raw))
+            .unwrap_or_default(),
+        Ok(Some((raw, ConfigFormat::Json, _))) => serde_json::from_str(&raw).unwrap_or_default(),
+        Ok(None) | Err(_) => Default::default(),
+    })
 }
 
 pub fn user_commands() -> Vec<Item> {
-    USER_COMMANDS.get()
+    USER_COMMANDS.get_with(|| match read_config_file("commands") {
+        Ok(Some((raw, ConfigFormat::Toml, _))) => toml::from_str::<CommandsFile>(&raw)
+            .map(|file| file.commands)
+            .unwrap_or_default(),
+        Ok(Some((raw, ConfigFormat::Json, _))) => serde_json::from_str(&raw).unwrap_or_default(),
+        Ok(None) | Err(_) => Default::default(),
+    })
 }
 
 pub fn user_hidden() -> std::collections::HashSet<String> {
-    USER_HIDDEN.get()
+    USER_HIDDEN.get_with(|| match read_config_file("hidden") {
+        Ok(Some((raw, ConfigFormat::Toml, _))) => toml::from_str::<HiddenFile>(&raw)
+            .map(|file| file.hidden)
+            .unwrap_or_default(),
+        Ok(Some((raw, ConfigFormat::Json, _))) => serde_json::from_str(&raw).unwrap_or_default(),
+        Ok(None) | Err(_) => Default::default(),
+    })
 }
 
 pub fn user_sizing() -> Sizing {
@@ -55,17 +156,14 @@ pub fn user_sizing() -> Sizing {
 }
 
 pub fn user_palette(name: &str) -> Option<CustomPalette> {
-    load_json(&format!("palettes/{name}.json"), None)
+    load_config(&format!("palettes/{name}"), None)
 }
 
 fn read_user_palette(name: &str) -> anyhow::Result<Option<CustomPalette>> {
-    let path = config_dir().join("palettes").join(format!("{name}.json"));
-    let raw = match fs::read_to_string(&path) {
-        Ok(raw) => raw,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(err).with_context(|| format!("Failed to read {}", path.display())),
+    let Some((raw, format, path)) = read_config_file(&format!("palettes/{name}"))? else {
+        return Ok(None);
     };
-    let palette = serde_json::from_str::<CustomPalette>(&raw)
+    let palette = parse_config::<CustomPalette>(&raw, format)
         .with_context(|| format!("Failed to parse {}", path.display()))?;
     Ok(Some(palette))
 }
@@ -238,7 +336,9 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let old = env::var_os("XDG_CONFIG_HOME");
         env::set_var("XDG_CONFIG_HOME", dir.path());
+        clear_user_config_cache();
         f();
+        clear_user_config_cache();
         match old {
             Some(v) => env::set_var("XDG_CONFIG_HOME", v),
             None => env::remove_var("XDG_CONFIG_HOME"),
@@ -267,11 +367,88 @@ mod tests {
     }
 
     #[test]
+    fn loads_toml_commands_and_hidden() {
+        with_config(|| {
+            let cfg = config_dir();
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(
+                cfg.join("commands.toml"),
+                r#"[[commands]]
+title = "User"
+action = { shell = "echo hi" }
+"#,
+            )
+            .unwrap();
+            fs::write(cfg.join("hidden.toml"), r#"hidden = ["Reload Config"]"#).unwrap();
+
+            assert_eq!(user_commands().len(), 1);
+            assert!(user_hidden().contains("Reload Config"));
+            assert!(!load_palette("commands")
+                .unwrap()
+                .items
+                .iter()
+                .any(|i| i.title == "Reload Config"));
+        });
+    }
+
+    #[test]
+    fn prefers_toml_over_json() {
+        with_config(|| {
+            let cfg = config_dir();
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(
+                cfg.join("commands.json"),
+                r#"[{"title":"JSON","action":{"shell":"echo json"}}]"#,
+            )
+            .unwrap();
+            fs::write(
+                cfg.join("commands.toml"),
+                r#"[[commands]]
+title = "TOML"
+action = { shell = "echo toml" }
+"#,
+            )
+            .unwrap();
+
+            let commands = user_commands();
+            assert_eq!(commands.len(), 1);
+            assert_eq!(commands[0].title, "TOML");
+        });
+    }
+
+    #[test]
     fn loads_custom_palette_sources() {
         with_config(|| {
             let cfg = config_dir().join("palettes");
             fs::create_dir_all(&cfg).unwrap();
             fs::write(cfg.join("demo.json"), r#"{"title":"Demo","from":["Find Pane"],"fromCategory":"Panes","items":[{"title":"Local","action":{"shell":"echo local"}}]}"#).unwrap();
+            let palette = load_palette("demo").unwrap();
+            assert!(palette.items.iter().any(|i| i.title == "Local"));
+            assert!(palette.items.iter().any(|i| i.title == "Find Pane"));
+            assert!(palette
+                .items
+                .iter()
+                .any(|i| i.category.as_deref() == Some("Panes")));
+        });
+    }
+
+    #[test]
+    fn loads_toml_custom_palette_sources() {
+        with_config(|| {
+            let cfg = config_dir().join("palettes");
+            fs::create_dir_all(&cfg).unwrap();
+            fs::write(
+                cfg.join("demo.toml"),
+                r#"title = "Demo"
+from = ["Find Pane"]
+fromCategory = "Panes"
+
+[[items]]
+title = "Local"
+action = { shell = "echo local" }
+"#,
+            )
+            .unwrap();
             let palette = load_palette("demo").unwrap();
             assert!(palette.items.iter().any(|i| i.title == "Local"));
             assert!(palette.items.iter().any(|i| i.title == "Find Pane"));
