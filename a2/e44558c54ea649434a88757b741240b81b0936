@@ -1,0 +1,24 @@
+crates/tmux-palette/src/tui.rs
+  s_4ab629e1cfe817::t_0ac6b35e31f73e 202
+  s_4ab629e1cfe817::t_c56638de5a5e27 203-212
+crates/tmux-palette/src/theme.rs
+  s_4ab629e1cfe817::t_cb70a3cc34236c 40,42-43,354-356,376-378
+  s_4ab629e1cfe817::t_30ca7b24c99064 11,38-39,41,49-54,300-315,319-326
+  s_4ab629e1cfe817::t_fa9f34b00bf97c 342-353,357-375,379-380
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "a2e44558c54ea649434a88757b741240b81b0936",
+  "prompts": {},
+  "sessions": {
+    "s_4ab629e1cfe817": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_1ca451170ffe2UG89BSSAoZn4m",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Simon Krenn <skrenn99@gmail.com>"
+    }
+  }
+}
