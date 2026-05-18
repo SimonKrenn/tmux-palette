@@ -8,7 +8,7 @@ use crate::{
     model::{Colors, Theme},
 };
 
-pub const DEFAULT_SLUG: &str = "shades-of-purple";
+pub const DEFAULT_SLUG: &str = "terminal";
 
 static BUNDLED_THEME_MAP: LazyLock<HashMap<String, Theme>> = LazyLock::new(|| {
     bundled_themes()
@@ -35,17 +35,23 @@ pub enum ThemeSource {
 
 pub fn default_theme() -> Theme {
     Theme {
-        bg: "#1e1d40".into(),
-        panel: "#2d2b55".into(),
-        selected: "#504d7a".into(),
-        fg: "#ffffff".into(),
-        muted: "#a599e9".into(),
-        accent: "#fad000".into(),
+        bg: "default".into(),
+        panel: "default".into(),
+        selected: "colour4".into(),
+        fg: "default".into(),
+        muted: "colour6".into(),
+        accent: "colour5".into(),
     }
 }
 
 pub fn bundled_themes() -> Vec<ThemeListEntry> {
     vec![
+        ThemeListEntry {
+            slug: DEFAULT_SLUG.into(),
+            name: "Terminal".into(),
+            theme: default_theme(),
+            source: ThemeSource::Bundled,
+        },
         bundled(
             "shades-of-purple",
             "Shades of Purple",
@@ -291,13 +297,33 @@ fn rgb(hex: &str) -> anyhow::Result<(u8, u8, u8)> {
     ))
 }
 
-fn fg(hex: &str) -> anyhow::Result<String> {
-    let (r, g, b) = rgb(hex)?;
+fn indexed(color: &str) -> Option<u8> {
+    let lower = color.to_ascii_lowercase();
+    lower
+        .strip_prefix("colour")
+        .or_else(|| lower.strip_prefix("color"))
+        .and_then(|value| value.parse().ok())
+}
+
+fn fg(color: &str) -> anyhow::Result<String> {
+    if color.eq_ignore_ascii_case("default") {
+        return Ok("\x1b[39m".into());
+    }
+    if let Some(index) = indexed(color) {
+        return Ok(format!("\x1b[38;5;{index}m"));
+    }
+    let (r, g, b) = rgb(color)?;
     Ok(format!("\x1b[38;2;{r};{g};{b}m"))
 }
 
-fn bg(hex: &str) -> anyhow::Result<String> {
-    let (r, g, b) = rgb(hex)?;
+fn bg(color: &str) -> anyhow::Result<String> {
+    if color.eq_ignore_ascii_case("default") {
+        return Ok("\x1b[49m".into());
+    }
+    if let Some(index) = indexed(color) {
+        return Ok(format!("\x1b[48;5;{index}m"));
+    }
+    let (r, g, b) = rgb(color)?;
     Ok(format!("\x1b[48;2;{r};{g};{b}m"))
 }
 
@@ -312,4 +338,43 @@ pub fn make_colors(theme: &Theme) -> anyhow::Result<Colors> {
         reset: "\x1b[0m".into(),
         bold: "\x1b[1m".into(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_theme_uses_terminal_colors() {
+        let theme = default_theme();
+
+        assert_eq!(DEFAULT_SLUG, "terminal");
+        assert_eq!(theme.panel, "default");
+        assert_eq!(theme.fg, "default");
+        assert_eq!(theme.selected, "colour4");
+        assert_eq!(theme.muted, "colour6");
+        assert_eq!(theme.accent, "colour5");
+    }
+
+    #[test]
+    fn terminal_theme_is_available_as_bundled_theme() {
+        let terminal = bundled_themes()
+            .into_iter()
+            .find(|entry| entry.slug == DEFAULT_SLUG)
+            .expect("terminal theme is bundled");
+
+        assert_eq!(terminal.name, "Terminal");
+        assert_eq!(terminal.theme, default_theme());
+    }
+
+    #[test]
+    fn make_colors_accepts_default_and_indexed_colors() {
+        let colors = make_colors(&default_theme()).unwrap();
+
+        assert_eq!(colors.panel, "\x1b[49m");
+        assert_eq!(colors.fg, "\x1b[39m");
+        assert_eq!(colors.selected, "\x1b[48;5;4m\x1b[39m");
+        assert_eq!(colors.muted, "\x1b[38;5;6m");
+        assert_eq!(colors.accent, "\x1b[38;5;5m");
+    }
 }
