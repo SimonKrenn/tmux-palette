@@ -199,6 +199,17 @@ fn theme_from_item(item: Option<&Item>) -> Option<Theme> {
 }
 
 fn rat_color(hex: &str) -> Color {
+    if hex.eq_ignore_ascii_case("default") {
+        return Color::Reset;
+    }
+    let lower = hex.to_ascii_lowercase();
+    if let Some(index) = lower
+        .strip_prefix("colour")
+        .or_else(|| lower.strip_prefix("color"))
+        .and_then(|value| value.parse().ok())
+    {
+        return Color::Indexed(index);
+    }
     let h = hex.strip_prefix('#').unwrap_or(hex);
     if h.len() != 6 {
         return Color::Reset;
